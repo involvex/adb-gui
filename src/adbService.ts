@@ -1,9 +1,34 @@
+interface FileEntry {
+  name: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+  size: string;
+  perms: string;
+  owner: string;
+  group: string;
+  date: string;
+}
+
 interface AdbWindow {
   execute(
     cmd: string,
     deviceId?: string,
   ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   listDevices(): Promise<string[]>;
+  listFileEntries(
+    remotePath: string,
+    deviceId?: string,
+  ): Promise<{ error: string | null; entries: FileEntry[] }>;
+  pullFile(
+    remotePath: string,
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -54,7 +79,7 @@ async function getADBInfo(): Promise<{
 }
 
 async function listPackages(): Promise<string[]> {
-  const result = await execute("pm list packages");
+  const result = await execute("shell pm list packages");
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("package:"))
@@ -62,7 +87,7 @@ async function listPackages(): Promise<string[]> {
 }
 
 async function listThirdPartyPackages(): Promise<string[]> {
-  const result = await execute("pm list packages -3");
+  const result = await execute("shell pm list packages -3");
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("package:"))
@@ -70,11 +95,11 @@ async function listThirdPartyPackages(): Promise<string[]> {
 }
 
 async function grantPermissions(packageName: string): Promise<AdbResult> {
-  return execute(`pm grant ${packageName} --user 0 --all-permissions`);
+  return execute(`shell pm grant ${packageName} --user 0 --all-permissions`);
 }
 
 async function listPermissions(packageName: string): Promise<string[]> {
-  const result = await execute(`pm list permissions ${packageName}`);
+  const result = await execute(`shell pm list permissions ${packageName}`);
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("name:"))
@@ -121,7 +146,23 @@ async function getShellCurrentDir(): Promise<AdbResult> {
 }
 
 async function getHostCurrentDir(): Promise<AdbResult> {
-  return execute("pwd");
+  return execute("shell pwd");
+}
+
+async function listFileEntries(
+  remotePath: string,
+): Promise<{ error: string | null; entries: FileEntry[] }> {
+  return adb.listFileEntries(remotePath, currentDeviceId ?? undefined);
+}
+
+async function pullFile(remotePath: string): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.pullFile(remotePath, currentDeviceId ?? undefined);
 }
 
 export const adbService = {
@@ -139,6 +180,8 @@ export const adbService = {
   listDirectory,
   getShellCurrentDir,
   getHostCurrentDir,
+  listFileEntries,
+  pullFile,
 };
 
 export default adbService;

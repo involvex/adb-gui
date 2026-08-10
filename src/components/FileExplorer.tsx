@@ -1,52 +1,113 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { adbService } from "../adbService";
 
+interface FileEntry {
+  name: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+  size: string;
+  perms: string;
+  owner: string;
+  group: string;
+  date: string;
+}
+
+const DEFAULT_PATH = "/sdcard";
+
+function buildPath(dir: string, name: string): string {
+  if (dir.endsWith("/")) return dir + name;
+  return dir + "/" + name;
+}
+
+function parentPath(dir: string): string {
+  const trimmed = dir.endsWith("/") ? dir.slice(0, -1) : dir;
+  const idx = trimmed.lastIndexOf("/");
+  if (idx <= 0) return "/";
+  return trimmed.slice(0, idx);
+}
+
+function fmtSize(bytes: string): string {
+  const n = parseInt(bytes, 10);
+  if (isNaN(n)) return bytes;
+  if (n >= 1073741824) return (n / 1073741824).toFixed(1) + " GB";
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+  if (n >= 1024) return (n / 1024).toFixed(1) + " KB";
+  return n + " B";
+}
+
 const FileExplorer: React.FC = () => {
-  const [remotePath, setRemotePath] = useState<string>("");
-  const [localPath, setLocalPath] = useState<string>("");
-  const [pulling, setPulling] = useState<boolean>(false);
+  const [currentPath, setCurrentPath] = useState<string>(DEFAULT_PATH);
+  const [pathInput, setPathInput] = useState<string>(DEFAULT_PATH);
+  const [entries, setEntries] = useState<FileEntry[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [files, setFiles] = useState<string[]>([]);
 
-  const handleBrowse = async () => {
-    if (!remotePath.trim()) return;
+  const loadDir = useCallback(async (remotePath: string) => {
+    setLoading(true);
     setError(null);
     try {
-      const result = await adbService.listDirectory(remotePath);
-      setFiles(result.stdout.split("\n").filter(Boolean));
-    } catch {
-      setError("Failed to list directory");
-    }
-  };
-
-  const handlePull = async () => {
-    if (!remotePath.trim()) {
-      setError("Please enter a remote path");
-      return;
-    }
-    if (!localPath.trim()) {
-      setError("Please enter a local destination path");
-      return;
-    }
-
-    setPulling(true);
-    setError(null);
-    setStatusMsg(null);
-    try {
-      const result = await adbService.pull(remotePath, localPath);
-      if (result.exitCode === 0) {
-        setStatusMsg(`Pulled ${remotePath} -> ${localPath}`);
-        setTimeout(() => setStatusMsg(null), 5000);
+      const result = await adbService.listFileEntries(remotePath);
+      if (result.error) {
+        setError(result.error);
+        setEntries([]);
       } else {
-        setError(`Pull failed: ${result.stderr}`);
+        setEntries(result.entries);
+        setCurrentPath(remotePath);
+        setPathInput(remotePath);
       }
-    } catch {
-      setError("Pull failed");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to list directory";
+      setError(msg);
+      setEntries([]);
     } finally {
-      setPulling(false);
+      setLoading(false);
+    }
+  }, []);
+
+  const handleNavigate = (name: string) => {
+    loadDir(buildPath(currentPath, name));
+  };
+
+  const handleGoUp = () => {
+    if (currentPath === "/") return;
+    loadDir(parentPath(currentPath));
+  };
+
+  const handleGoToPath = () => {
+    const trimmed = pathInput.trim();
+    if (trimmed) loadDir(trimmed);
+  };
+
+  const handlePull = async (entry: FileEntry) => {
+    if (entry.isDirectory) return;
+    setStatusMsg(null);
+    setError(null);
+    try {
+      const result = await adbService.pullFile(
+        buildPath(currentPath, entry.name),
+      );
+      if (result.error && result.error !== "cancelled") {
+        setError(result.error);
+      } else if (result.exitCode !== 0 && result.error !== "cancelled") {
+        setError(result.stderr || "Pull failed");
+      } else if (result.error !== "cancelled") {
+        setStatusMsg(
+          `Pulled "${entry.name}" to ${result.localPath || "local"}`,
+        );
+        setTimeout(() => setStatusMsg(null), 5000);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Pull failed";
+      setError(msg);
     }
   };
+
+  const dirs = entries.filter((e) => e.isDirectory && !e.isSymlink);
+  const files = entries.filter((e) => !e.isDirectory);
+
+  const breadcrumbs = currentPath.split("/").filter(Boolean);
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -54,81 +115,172 @@ const FileExplorer: React.FC = () => {
         File Explorer
       </h2>
 
-      <div className="space-y-3">
-        <div>
-          <label
-            htmlFor="remote-path"
-            className="block text-xs text-gray-400 mb-1"
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-1 text-sm text-gray-400 flex-1 min-w-0 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => loadDir("/")}
+            className="text-blue-400 hover:text-blue-300 transition-colors shrink-0"
           >
-            Remote Path:
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="remote-path"
-              type="text"
-              placeholder="storage/sdcard0/Android/data/..."
-              value={remotePath}
-              onChange={(e) => setRemotePath(e.target.value)}
-              className="flex-1 bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm outline-none focus:border-gray-500 transition-colors"
-            />
-            <button
-              type="button"
-              onClick={handleBrowse}
-              className="bg-gray-700 text-gray-300 px-3 py-2 rounded hover:bg-gray-600 transition-colors text-sm"
-            >
-              Browse
-            </button>
-          </div>
+            /
+          </button>
+          {breadcrumbs.map((crumb, i) => (
+            <span key={i} className="flex items-center gap-1 shrink-0">
+              <span className="text-gray-600">/</span>
+              <button
+                type="button"
+                onClick={() =>
+                  loadDir("/" + breadcrumbs.slice(0, i + 1).join("/"))
+                }
+                className="text-blue-400 hover:text-blue-300 transition-colors truncate max-w-[150px]"
+              >
+                {crumb}
+              </button>
+            </span>
+          ))}
         </div>
-
-        <div>
-          <label
-            htmlFor="local-path"
-            className="block text-xs text-gray-400 mb-1"
-          >
-            Local Destination:
-          </label>
-          <input
-            id="local-path"
-            type="text"
-            placeholder="C:\Users\...\file.txt"
-            value={localPath}
-            onChange={(e) => setLocalPath(e.target.value)}
-            className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm outline-none focus:border-gray-500 transition-colors"
-          />
-        </div>
-
         <button
           type="button"
-          onClick={handlePull}
-          disabled={pulling || !remotePath || !localPath}
-          className="bg-blue-900/30 text-blue-300 px-4 py-2 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => loadDir(currentPath)}
+          disabled={loading}
+          className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 shrink-0"
         >
-          {pulling ? "Pulling..." : "Pull File"}
+          {loading ? "..." : "Refresh"}
         </button>
-
-        {statusMsg && (
-          <div className="bg-green-900/20 border border-green-800 text-green-400 p-2 rounded text-sm">
-            {statusMsg}
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-900/20 border border-red-800 text-red-400 p-2 rounded text-sm">
-            {error}
-          </div>
-        )}
-
-        {files.length > 0 && (
-          <div className="bg-gray-800/50 border border-gray-700 rounded p-2 max-h-40 overflow-y-auto">
-            <pre className="text-xs text-gray-300 font-mono">
-              {files.map((f, i) => (
-                <div key={i}>{f}</div>
-              ))}
-            </pre>
-          </div>
-        )}
       </div>
+
+      <div className="flex gap-2 mb-3">
+        <input
+          type="text"
+          value={pathInput}
+          onChange={(e) => setPathInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleGoToPath()}
+          placeholder="Enter path..."
+          className="flex-1 bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm outline-none focus:border-gray-500 transition-colors font-mono"
+        />
+        <button
+          type="button"
+          onClick={handleGoToPath}
+          className="bg-gray-700 text-gray-300 px-3 py-2 rounded hover:bg-gray-600 transition-colors text-sm"
+        >
+          Go
+        </button>
+      </div>
+
+      {statusMsg && (
+        <div className="bg-green-900/20 border border-green-800 text-green-400 p-2 rounded mb-3 text-sm">
+          {statusMsg}
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-800 text-red-400 p-2 rounded mb-3 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="text-gray-400 text-sm py-4 text-center">Loading...</div>
+      )}
+
+      {!loading && entries.length > 0 && (
+        <div className="max-h-96 overflow-y-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 z-10">
+              <tr>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  Name
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  Size
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  Date
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  Perms
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentPath !== "/" && (
+                <tr
+                  className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                  onClick={handleGoUp}
+                  onKeyDown={(e) => e.key === "Enter" && handleGoUp()}
+                  tabIndex={0}
+                >
+                  <td className="px-3 py-2 text-sm text-blue-400" colSpan={4}>
+                    ..
+                  </td>
+                  <td className="px-3 py-2" />
+                </tr>
+              )}
+              {dirs.map((entry) => (
+                <tr
+                  key={entry.name}
+                  className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                  onClick={() => handleNavigate(entry.name)}
+                >
+                  <td className="px-3 py-2 text-sm text-blue-300 font-mono truncate max-w-[300px]">
+                    {entry.name}/
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500">
+                    &lt;dir&gt;
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500">
+                    {entry.date}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500 font-mono">
+                    {entry.perms}
+                  </td>
+                  <td className="px-3 py-2" />
+                </tr>
+              ))}
+              {files.map((entry) => (
+                <tr
+                  key={entry.name}
+                  className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors"
+                >
+                  <td className="px-3 py-2 text-sm text-gray-200 font-mono truncate max-w-[300px]">
+                    {entry.name}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-400">
+                    {fmtSize(entry.size)}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500">
+                    {entry.date}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500 font-mono">
+                    {entry.perms}
+                  </td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePull(entry);
+                      }}
+                      className="bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded hover:bg-blue-900/50 transition-colors text-xs font-medium border border-blue-800"
+                    >
+                      Pull
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!loading && entries.length === 0 && !error && (
+        <div className="text-gray-500 text-sm py-4 text-center">
+          Connect a device and press Refresh to browse files.
+        </div>
+      )}
     </div>
   );
 };

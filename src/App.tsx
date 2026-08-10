@@ -4,6 +4,7 @@ import ProcessManager from "./components/ProcessManager";
 import PermissionManager from "./components/PermissionManager";
 import FileExplorer from "./components/FileExplorer";
 import QuickCommands from "./components/QuickCommands";
+import CommandBar from "./components/CommandBar";
 
 type Section = "dashboard" | "processes" | "permissions" | "files" | "quick";
 
@@ -54,6 +55,8 @@ function App() {
         {activeSection === "files" && <FileExplorer />}
         {activeSection === "quick" && <QuickCommands />}
       </main>
+
+      <CommandBar />
 
       <footer className="bg-gray-900 border-t border-gray-800 px-4 py-2 text-gray-500 text-xs">
         ADB GUI v0.0.0

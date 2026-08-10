@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
 
 interface ProcessInfo {
@@ -10,24 +10,28 @@ interface ProcessInfo {
 const ProcessManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
-  const handleSearch = async () => {
+  const loadProcesses = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setStatusMsg(null);
     try {
       const result = await adbService.listProcesses();
       setProcesses(result);
     } catch (err) {
-      setError("Failed to list processes");
-      console.error("Process list error:", err);
+      const msg =
+        err instanceof Error ? err.message : "Failed to list processes";
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProcesses();
+  }, [loadProcesses]);
 
   const handleKill = async (pkgName: string) => {
     setStatusMsg(`Stopping ${pkgName}...`);
@@ -35,9 +39,12 @@ const ProcessManager: React.FC = () => {
       await adbService.forceStop(pkgName);
       setStatusMsg(`${pkgName} force-stopped`);
       setTimeout(() => setStatusMsg(null), 3000);
-    } catch {
-      setError(`Failed to stop ${pkgName}`);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : `Failed to stop ${pkgName}`;
+      setError(msg);
       setStatusMsg(null);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -50,23 +57,33 @@ const ProcessManager: React.FC = () => {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-gray-100">Process Manager</h2>
+        <h2 className="text-lg font-semibold text-gray-100">
+          Process Manager
+          {!loading && processes.length > 0 && (
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              ({filtered.length}/{processes.length})
+            </span>
+          )}
+        </h2>
         <button
           type="button"
-          onClick={handleSearch}
-          className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+          onClick={loadProcesses}
+          disabled={loading}
+          className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50"
         >
-          Search
+          {loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Search processes..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm mb-3 outline-none focus:border-gray-500 transition-colors"
-      />
+      {processes.length > 0 && (
+        <input
+          type="text"
+          placeholder="Search processes..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm mb-3 outline-none focus:border-gray-500 transition-colors"
+        />
+      )}
 
       {statusMsg && (
         <div className="bg-green-900/20 border border-green-800 text-green-400 p-2 rounded mb-3 text-sm">
@@ -144,7 +161,7 @@ const ProcessManager: React.FC = () => {
 
       {!loading && processes.length === 0 && (
         <div className="text-gray-500 text-sm py-4 text-center">
-          Click &quot;Search&quot; to load processes
+          No processes found. Ensure a device is connected via USB debugging.
         </div>
       )}
     </div>

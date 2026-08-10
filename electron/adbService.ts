@@ -73,7 +73,7 @@ export class AdbService {
   }
 
   async listPackages(): Promise<string[]> {
-    const result = await this.execute("pm list packages");
+    const result = await this.execute("shell pm list packages");
     return result.stdout
       .split("\n")
       .filter((line: string) => line.includes("package:"))
@@ -81,7 +81,7 @@ export class AdbService {
   }
 
   async listThirdPartyPackages(): Promise<string[]> {
-    const result = await this.execute("pm list packages -3");
+    const result = await this.execute("shell pm list packages -3");
     return result.stdout
       .split("\n")
       .filter((line: string) => line.includes("package:"))
@@ -90,13 +90,15 @@ export class AdbService {
 
   async grantPermissions(packageName: string): Promise<AdbResult> {
     return this.execute(
-      `pm grant ${packageName} --user 0 --all-permissions`,
+      `shell pm grant ${packageName} --user 0 --all-permissions`,
       30000,
     );
   }
 
   async listPermissions(packageName: string): Promise<string[]> {
-    const result = await this.execute(`pm list permissions ${packageName}`);
+    const result = await this.execute(
+      `shell pm list permissions ${packageName}`,
+    );
     return result.stdout
       .split("\n")
       .filter((line: string) => line.includes("name:"))
@@ -143,7 +145,7 @@ export class AdbService {
   }
 
   async getHostCurrentDir(): Promise<AdbResult> {
-    return this.execute("pwd", 10000);
+    return this.execute("shell pwd", 10000);
   }
 
   async executeBatch(
