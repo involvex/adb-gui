@@ -105,6 +105,35 @@ export class AdbService {
       .map((line: string) => line.replace("name:", "").trim());
   }
 
+  async listActivities(packageName: string): Promise<string[]> {
+    const result = await this.execute(
+      `shell dumpsys package ${packageName}`,
+      15000,
+    );
+    const activityRe = /^\s+[0-9a-f]+\s+(\S+)\s+filter\s+[0-9a-f]+/gm;
+    const activities = new Set<string>();
+    const matches = result.stdout.matchAll(activityRe);
+    for (const m of matches) {
+      const component = m[1];
+      if (!component) continue;
+      const idx = component.indexOf("/");
+      if (idx !== -1) {
+        activities.add(component.slice(idx + 1));
+      }
+    }
+    return [...activities].sort();
+  }
+
+  async launchActivity(
+    packageName: string,
+    activityName: string,
+  ): Promise<AdbResult> {
+    const activity = activityName.startsWith(".")
+      ? activityName
+      : activityName.replace(packageName, "");
+    return this.execute(`shell am start -n ${packageName}/${activity}`, 10000);
+  }
+
   async listProcesses(): Promise<
     { user: string; pid: number; name: string }[]
   > {

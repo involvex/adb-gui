@@ -5,8 +5,10 @@ import PermissionManager from "./components/PermissionManager";
 import FileExplorer from "./components/FileExplorer";
 import QuickCommands from "./components/QuickCommands";
 import CommandBar from "./components/CommandBar";
+import LogcatViewer from "./components/LogcatViewer";
 
-type Section = "dashboard" | "processes" | "permissions" | "files" | "quick";
+type Section =
+  "dashboard" | "processes" | "permissions" | "files" | "quick" | "logcat";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -14,6 +16,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "permissions", label: "Permissions" },
   { key: "files", label: "File Explorer" },
   { key: "quick", label: "Quick Commands" },
+  { key: "logcat", label: "Logcat" },
 ];
 
 function App() {
@@ -42,11 +45,14 @@ function App() {
 
       <main className="flex-1 overflow-auto p-6 bg-gray-950">
         {activeSection === "dashboard" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <ProcessManager />
-            <PermissionManager />
-            <FileExplorer />
-            <QuickCommands />
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <ProcessManager />
+              <PermissionManager />
+              <FileExplorer />
+              <QuickCommands />
+            </div>
+            <LogcatViewer />
           </div>
         )}
 
@@ -54,6 +60,7 @@ function App() {
         {activeSection === "permissions" && <PermissionManager />}
         {activeSection === "files" && <FileExplorer />}
         {activeSection === "quick" && <QuickCommands />}
+        {activeSection === "logcat" && <LogcatViewer />}
       </main>
 
       <CommandBar />

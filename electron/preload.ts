@@ -45,4 +45,27 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:pull-file", { remotePath, deviceId });
   },
+
+  startLogcat(filters: {
+    priority?: string;
+    buffer?: string;
+    tags?: string;
+    pid?: string;
+    deviceId?: string;
+  }): Promise<{ success: boolean }> {
+    return ipcRenderer.invoke("adb:logcat-start", filters);
+  },
+
+  stopLogcat(): Promise<{ success: boolean }> {
+    return ipcRenderer.invoke("adb:logcat-stop");
+  },
+
+  onLogcatLine(callback: (line: string) => void): () => void {
+    const listener = (_event: Electron.IpcRendererEvent, line: string) =>
+      callback(line);
+    ipcRenderer.on("adb:logcat-line", listener);
+    return () => {
+      ipcRenderer.removeListener("adb:logcat-line", listener);
+    };
+  },
 });

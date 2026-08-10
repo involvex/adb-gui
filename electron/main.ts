@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { AdbService } from "./adbService";
@@ -17,6 +18,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 let win: BrowserWindow | null = null;
+let logcatProcess: ChildProcess | null = null;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -118,7 +120,100 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "adb:logcat-start",
+  async (
+    event,
+    {
+      priority,
+      buffer,
+      tags,
+      pid: filterPid,
+      deviceId,
+    }: {
+      priority?: string;
+      buffer?: string;
+      tags?: string;
+      pid?: string;
+      deviceId?: string;
+    },
+  ) => {
+    if (logcatProcess) {
+      logcatProcess.kill();
+      logcatProcess = null;
+    }
+
+    const args: string[] = [];
+    if (deviceId) {
+      args.push("-s", deviceId);
+    }
+    args.push("logcat", "-v", "threadtime");
+
+    if (buffer && buffer !== "all") {
+      args.push("-b", buffer);
+    }
+    if (filterPid) {
+      args.push("--pid", filterPid);
+    }
+
+    if (tags) {
+      args.push(...tags.split(/\s+/).filter(Boolean));
+    } else {
+      args.push(`*:${priority || "I"}`);
+    }
+
+    const child = spawn("adb", args, { stdio: ["ignore", "pipe", "pipe"] });
+    logcatProcess = child;
+
+    let buf = "";
+    child.stdout.on("data", (data: Buffer) => {
+      buf += data.toString();
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      for (const line of lines) {
+        if (line.trim()) {
+          event.sender.send("adb:logcat-line", line);
+        }
+      }
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      event.sender.send(
+        "adb:logcat-line",
+        `[stderr] ${data.toString().trim()}`,
+      );
+    });
+
+    child.on("close", () => {
+      if (logcatProcess === child) {
+        logcatProcess = null;
+      }
+    });
+
+    child.on("error", (err) => {
+      event.sender.send("adb:logcat-line", `[error] ${err.message}`);
+      if (logcatProcess === child) {
+        logcatProcess = null;
+      }
+    });
+
+    return { success: true };
+  },
+);
+
+ipcMain.handle("adb:logcat-stop", async () => {
+  if (logcatProcess) {
+    logcatProcess.kill();
+    logcatProcess = null;
+  }
+  return { success: true };
+});
+
 app.on("window-all-closed", () => {
+  if (logcatProcess) {
+    logcatProcess.kill();
+    logcatProcess = null;
+  }
   if (process.platform !== "darwin") {
     app.quit();
     win = null;

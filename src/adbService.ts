@@ -29,6 +29,15 @@ interface AdbWindow {
     error?: string;
     localPath?: string;
   }>;
+  startLogcat(filters: {
+    priority?: string;
+    buffer?: string;
+    tags?: string;
+    pid?: string;
+    deviceId?: string;
+  }): Promise<{ success: boolean }>;
+  stopLogcat(): Promise<{ success: boolean }>;
+  onLogcatLine(callback: (line: string) => void): () => void;
 }
 
 const adb = window.adb as AdbWindow;
@@ -106,6 +115,32 @@ async function listPermissions(packageName: string): Promise<string[]> {
     .map((line: string) => line.replace("name:", "").trim());
 }
 
+async function listActivities(packageName: string): Promise<string[]> {
+  const result = await execute(`shell dumpsys package ${packageName}`);
+  const activityRe = /^\s+[0-9a-f]+\s+(\S+)\s+filter\s+[0-9a-f]+/gm;
+  const activities = new Set<string>();
+  const matches = result.stdout.matchAll(activityRe);
+  for (const m of matches) {
+    const component = m[1];
+    if (!component) continue;
+    const idx = component.indexOf("/");
+    if (idx !== -1) {
+      activities.add(component.slice(idx + 1));
+    }
+  }
+  return [...activities].sort();
+}
+
+async function launchActivity(
+  packageName: string,
+  activityName: string,
+): Promise<AdbResult> {
+  const activity = activityName.startsWith(".")
+    ? activityName
+    : activityName.replace(packageName, "");
+  return execute(`shell am start -n ${packageName}/${activity}`);
+}
+
 async function listProcesses(): Promise<
   { user: string; pid: number; name: string }[]
 > {
@@ -165,6 +200,26 @@ async function pullFile(remotePath: string): Promise<{
   return adb.pullFile(remotePath, currentDeviceId ?? undefined);
 }
 
+async function startLogcat(filters: {
+  priority?: string;
+  buffer?: string;
+  tags?: string;
+  pid?: string;
+}): Promise<{ success: boolean }> {
+  return adb.startLogcat({
+    ...filters,
+    deviceId: currentDeviceId ?? undefined,
+  });
+}
+
+async function stopLogcat(): Promise<{ success: boolean }> {
+  return adb.stopLogcat();
+}
+
+function onLogcatLine(callback: (line: string) => void): () => void {
+  return adb.onLogcatLine(callback);
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -173,6 +228,8 @@ export const adbService = {
   listThirdPartyPackages,
   grantPermissions,
   listPermissions,
+  listActivities,
+  launchActivity,
   listProcesses,
   forceStop,
   pull,
@@ -182,6 +239,9 @@ export const adbService = {
   getHostCurrentDir,
   listFileEntries,
   pullFile,
+  startLogcat,
+  stopLogcat,
+  onLogcatLine,
 };
 
 export default adbService;
