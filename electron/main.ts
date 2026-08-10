@@ -24,6 +24,7 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    icon: path.join(process.env.VITE_PUBLIC, "icon.svg"),
     backgroundColor: "#030712",
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),

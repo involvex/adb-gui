@@ -112,6 +112,7 @@ function h() {
 		height: 800,
 		minWidth: 800,
 		minHeight: 600,
+		icon: i.join(process.env.VITE_PUBLIC, "icon.svg"),
 		backgroundColor: "#030712",
 		webPreferences: {
 			preload: i.join(l, "preload.mjs"),

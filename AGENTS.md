@@ -9,6 +9,7 @@ This document provides comprehensive instructions for AI agents working on the A
 **ADB GUI** is an Electron + React + TypeScript application that provides a graphical interface for managing Android devices via ADB (Android Debug Bridge). It automates common ADB commands for permissions, file transfers, process management, and quick command execution.
 
 **Key Technologies:**
+
 - **Framework:** Electron + Vite (Main: Node.js, Renderer: React)
 - **Package Manager:** Bun (v1.3.0+)
 - **Language:** TypeScript (strict mode)
@@ -113,6 +114,7 @@ Renderer (React)          Preload                    Main (Electron)
 ```
 
 **IPC Channels (defined in `electron/main.ts`):**
+
 - `adb:execute` - Execute arbitrary ADB command
 - `adb:list-devices` - Get connected device serials
 - `adb:is-device-connected` - Check if device is connected
@@ -129,28 +131,29 @@ Main process class wrapping `child_process.exec` with promises.
 
 ```typescript
 class AdbService {
-  constructor(options: { deviceId?: string })  // Target specific device
-  
-  execute(cmd: string, timeout?: number): Promise<AdbResult>
-  getConnectedDevices(): Promise<string[]>
-  isDeviceConnected(deviceId: string): Promise<boolean>
-  getADBInfo(): Promise<{ version, path, features }>
-  listPackages(): Promise<string[]>
-  listThirdPartyPackages(): Promise<string[]>
-  grantPermissions(packageName: string): Promise<AdbResult>
-  listPermissions(packageName: string): Promise<string[]>
-  listProcesses(): Promise<ProcessInfo[]>
-  forceStop(packageName: string): Promise<AdbResult>
-  pull(remotePath, localPath): Promise<AdbResult>
-  push(localPath, remotePath): Promise<AdbResult>
-  listDirectory(remotePath): Promise<AdbResult>
-  getShellCurrentDir(): Promise<AdbResult>
-  getHostCurrentDir(): Promise<AdbResult>
-  executeBatch(commands: Array<{cmd, label}>): Promise<{success, results}>
+  constructor(options: { deviceId?: string }); // Target specific device
+
+  execute(cmd: string, timeout?: number): Promise<AdbResult>;
+  getConnectedDevices(): Promise<string[]>;
+  isDeviceConnected(deviceId: string): Promise<boolean>;
+  getADBInfo(): Promise<{ version; path; features }>;
+  listPackages(): Promise<string[]>;
+  listThirdPartyPackages(): Promise<string[]>;
+  grantPermissions(packageName: string): Promise<AdbResult>;
+  listPermissions(packageName: string): Promise<string[]>;
+  listProcesses(): Promise<ProcessInfo[]>;
+  forceStop(packageName: string): Promise<AdbResult>;
+  pull(remotePath, localPath): Promise<AdbResult>;
+  push(localPath, remotePath): Promise<AdbResult>;
+  listDirectory(remotePath): Promise<AdbResult>;
+  getShellCurrentDir(): Promise<AdbResult>;
+  getHostCurrentDir(): Promise<AdbResult>;
+  executeBatch(commands: Array<{ cmd; label }>): Promise<{ success; results }>;
 }
 ```
 
 **AdbResult Interface:**
+
 ```typescript
 interface AdbResult {
   stdout: string;
@@ -192,6 +195,7 @@ quickCommandsStore = {
 ### Navigation (App.tsx)
 
 5 Sections (tabs):
+
 1. **Dashboard** - Grid of all 4 modules
 2. **Process Manager** - List/kill processes
 3. **Permissions** - Grant permissions to packages
@@ -200,13 +204,13 @@ quickCommandsStore = {
 
 ### Component Details
 
-| Component | Key Features |
-|-----------|--------------|
-| **TopBar** | Device list, refresh, device selector |
-| **ProcessManager** | Search, list processes (`ps -A`), kill via `am force-stop` |
+| Component             | Key Features                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| **TopBar**            | Device list, refresh, device selector                                  |
+| **ProcessManager**    | Search, list processes (`ps -A`), kill via `am force-stop`             |
 | **PermissionManager** | List 3rd-party packages (`pm list packages -3`), grant all permissions |
-| **FileExplorer** | Browse remote dir (`ls -l`), pull files (`adb pull`) |
-| **QuickCommands** | Execute saved macros, reset to defaults |
+| **FileExplorer**      | Browse remote dir (`ls -l`), pull files (`adb pull`)                   |
+| **QuickCommands**     | Execute saved macros, reset to defaults                                |
 
 ---
 
@@ -273,6 +277,7 @@ chore(deps): update electron to v43
 ### Adding a New Quick Command
 
 Edit `src/electronStore.ts` `DEFAULT_COMMANDS` array:
+
 ```typescript
 {
   id: "unique-id",
@@ -296,28 +301,32 @@ Edit `src/electronStore.ts` `DEFAULT_COMMANDS` array:
 ## 🐛 Debugging
 
 ### Renderer DevTools
+
 - Open with `Ctrl+Shift+I` (or `Cmd+Opt+I` on Mac) in development
 
 ### Main Process Logs
+
 - Console output appears in terminal running `bun run dev`
 
 ### Common Issues
 
-| Issue | Solution |
-|-------|----------|
-| ADB not found | Ensure ADB in PATH, or set `ANDROID_HOME/platform-tools` |
-| Device not listed | Run `adb devices` manually, check USB debugging |
+| Issue             | Solution                                                     |
+| ----------------- | ------------------------------------------------------------ |
+| ADB not found     | Ensure ADB in PATH, or set `ANDROID_HOME/platform-tools`     |
+| Device not listed | Run `adb devices` manually, check USB debugging              |
 | Permission denied | Some commands need root (`adb root`) or specific permissions |
-| IPC timeout | Increase timeout in `AdbService.execute()` call |
+| IPC timeout       | Increase timeout in `AdbService.execute()` call              |
 
 ---
 
 ## 📦 Dependencies
 
 ### Production
+
 - `react`, `react-dom` v18.3
 
 ### Development
+
 - `electron` v43.3
 - `electron-builder` v26.15
 - `vite` v8.2 + `@vitejs/plugin-react` v6.0
@@ -328,6 +337,7 @@ Edit `src/electronStore.ts` `DEFAULT_COMMANDS` array:
 - `prettier` v3.4
 
 ### Node.js Requirement
+
 - **Node.js >= 20.0.0** (specified in `package.json` engines)
 
 ---
@@ -353,6 +363,7 @@ bun run build
 ## 📝 Plan Reference
 
 See `Plan.md` for the original development plan with milestones:
+
 1. Initialization & IPC Setup
 2. Core ADB Service
 3. Process Manager Module
@@ -376,4 +387,4 @@ See `Plan.md` for the original development plan with milestones:
 
 ---
 
-*Generated from project analysis. Update this file when architecture or conventions change.*
+_Generated from project analysis. Update this file when architecture or conventions change._

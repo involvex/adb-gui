@@ -9,10 +9,12 @@
   },
   files: ["dist", "dist-electron"],
   mac: {
+    icon: "public/icon.ico",
     target: ["dmg"],
     artifactName: "${productName}-Mac-${version}-Installer.${ext}",
   },
   win: {
+    icon: "public/icon.ico",
     target: [
       {
         target: "nsis",
@@ -28,6 +30,7 @@
     deleteAppDataOnUninstall: false,
   },
   linux: {
+    icon: "public/icon.ico",
     target: ["AppImage"],
     artifactName: "${productName}-Linux-${version}.${ext}",
   },

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117" />
+      <stop offset="100%" stop-color="#161b22" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#58a6ff" />
+      <stop offset="100%" stop-color="#3fb950" />
+    </linearGradient>
+  </defs>
+
+  <!-- background rounded rect -->
+  <rect x="0" y="0" width="512" height="512" rx="96" fill="url(#bg)" />
+  <rect x="4" y="4" width="504" height="504" rx="92" stroke="#30363d" stroke-width="4" />
+
+  <!-- Android device silhouette -->
+  <rect x="144" y="80" width="224" height="352" rx="32" fill="#1c2128" stroke="#30363d" stroke-width="3" />
+
+  <!-- screen -->
+  <rect x="164" y="104" width="184" height="240" rx="8" fill="#0d1117" stroke="#30363d" stroke-width="1.5" />
+
+  <!-- ADB text on screen -->
+  <text x="256" y="200" text-anchor="middle" font-family="'Courier New', monospace" font-size="36" font-weight="bold" fill="url(#accent)">ADB</text>
+  <text x="256" y="234" text-anchor="middle" font-family="'Courier New', monospace" font-size="18" fill="#8b949e">GUI</text>
+
+  <!-- cursor -->
+  <rect x="230" y="256" width="10" height="18" rx="1" fill="#58a6ff" opacity="0.8" />
+
+  <!-- terminal prompt -->
+  <text x="176" y="298" font-family="'Courier New', monospace" font-size="14" fill="#8b949e">$&gt; adb devices</text>
+  <text x="176" y="320" font-family="'Courier New', monospace" font-size="14" fill="#3fb950">emulator-5554</text>
+
+  <!-- home button on device -->
+  <circle cx="256" cy="388" r="12" fill="none" stroke="#30363d" stroke-width="2" />
+
+  <!-- USB cable -->
+  <path d="M256 432 L256 468" stroke="#30363d" stroke-width="3" />
+  <path d="M248 460 L264 460" stroke="#30363d" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M252 456 L260 456" stroke="#30363d" stroke-width="2" stroke-linecap="round" />
+</svg>
