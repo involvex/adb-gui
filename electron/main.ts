@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { AdbService } from "./adbService";
+import { AdbService, type AdbResult } from "./adbService";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const adb = new AdbService();
@@ -121,6 +121,39 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "adb:push-file",
+  async (
+    _event,
+    { remotePath, deviceId }: { remotePath: string; deviceId?: string },
+  ) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: "Select file(s) to push",
+      properties: ["openFile", "multiSelections"],
+    });
+    if (canceled || filePaths.length === 0) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const results: { file: string; result: AdbResult }[] = [];
+    for (const filePath of filePaths) {
+      const fileName = path.basename(filePath);
+      const destPath = remotePath.endsWith("/")
+        ? remotePath + fileName
+        : remotePath + "/" + fileName;
+      const result = await svc.push(filePath, destPath);
+      results.push({ file: filePath, result });
+    }
+    const allSuccess = results.every((r) => r.result.exitCode === 0);
+    return {
+      success: allSuccess,
+      results,
+      pushedFiles: results.map((r) => path.basename(r.file)),
+    };
+  },
+);
+
+ipcMain.handle(
   "adb:logcat-start",
   async (
     event,
@@ -221,6 +254,28 @@ ipcMain.handle(
         error: err instanceof Error ? err.message : "Failed to open folder",
       };
     }
+  },
+);
+
+ipcMain.handle(
+  "adb:device-info",
+  async (_event, { deviceId }: { deviceId?: string }) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const [deviceInfo, screenInfo, batteryInfo, storageInfo, networkInfo] =
+      await Promise.all([
+        svc.getDeviceInfo(),
+        svc.getScreenInfo(),
+        svc.getBatteryInfo(),
+        svc.getStorageInfo(),
+        svc.getNetworkInfo(),
+      ]);
+    return {
+      device: deviceInfo,
+      screen: screenInfo,
+      battery: batteryInfo,
+      storage: storageInfo,
+      network: networkInfo,
+    };
   },
 );
 

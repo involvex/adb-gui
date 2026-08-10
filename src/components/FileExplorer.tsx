@@ -130,6 +130,27 @@ const FileExplorer: React.FC = () => {
 
   const breadcrumbs = currentPath.split("/").filter(Boolean);
 
+  const handlePush = async () => {
+    setError(null);
+    setStatusMsg(null);
+    setPulledFolderPath(null);
+    try {
+      const result = await adbService.pushFile(currentPath);
+      if (result.error && result.error !== "cancelled") {
+        setError(result.error);
+      } else if (result.error !== "cancelled" && result.pushedFiles) {
+        setStatusMsg(
+          `Pushed ${result.pushedFiles.length} file(s) to ${currentPath}`,
+        );
+        setTimeout(() => setStatusMsg(null), 5000);
+        loadDir(currentPath);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Push failed";
+      setError(msg);
+    }
+  };
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
@@ -141,6 +162,14 @@ const FileExplorer: React.FC = () => {
             </span>
           )}
         </h2>
+        <button
+          type="button"
+          onClick={handlePush}
+          disabled={loading}
+          className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800 disabled:opacity-50"
+        >
+          Push Files
+        </button>
       </div>
 
       <div className="flex items-center gap-2 mb-3">

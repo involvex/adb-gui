@@ -6,12 +6,20 @@ import FileExplorer from "./components/FileExplorer";
 import QuickCommands from "./components/QuickCommands";
 import CommandBar from "./components/CommandBar";
 import LogcatViewer from "./components/LogcatViewer";
+import DeviceInfo from "./components/DeviceInfo";
 
 type Section =
-  "dashboard" | "processes" | "permissions" | "files" | "quick" | "logcat";
+  | "dashboard"
+  | "device"
+  | "processes"
+  | "permissions"
+  | "files"
+  | "quick"
+  | "logcat";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
+  { key: "device", label: "Device Info" },
   { key: "processes", label: "Process Manager" },
   { key: "permissions", label: "Permissions" },
   { key: "files", label: "File Explorer" },
@@ -64,6 +72,7 @@ function App() {
           </div>
         )}
 
+        {activeSection === "device" && <DeviceInfo />}
         {activeSection === "processes" && <ProcessManager />}
         {activeSection === "permissions" && (
           <PermissionManager onCountChange={setPackageCount} />

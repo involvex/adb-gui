@@ -46,6 +46,17 @@ contextBridge.exposeInMainWorld("adb", {
     return ipcRenderer.invoke("adb:pull-file", { remotePath, deviceId });
   },
 
+  pushFile(
+    remotePath: string,
+    deviceId?: string,
+  ): Promise<{
+    success: boolean;
+    pushedFiles?: string[];
+    error?: string;
+  }> {
+    return ipcRenderer.invoke("adb:push-file", { remotePath, deviceId });
+  },
+
   startLogcat(filters: {
     priority?: string;
     buffer?: string;
@@ -83,5 +94,15 @@ contextBridge.exposeInMainWorld("adb", {
     folderPath: string,
   ): Promise<{ success: boolean; error?: string }> {
     return ipcRenderer.invoke("adb:open-folder", { folderPath });
+  },
+
+  getDeviceInfo(deviceId?: string): Promise<{
+    device: Record<string, string>;
+    screen: { resolution: string; density: string };
+    battery: { level: string; status: string; temperature: string };
+    storage: { mount: string; total: string; used: string; free: string }[];
+    network: { wifiSsid: string; ipAddress: string };
+  }> {
+    return ipcRenderer.invoke("adb:device-info", { deviceId });
   },
 });

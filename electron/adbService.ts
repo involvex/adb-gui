@@ -177,6 +177,95 @@ export class AdbService {
     return this.execute("shell pwd", 10000);
   }
 
+  async getDeviceInfo(): Promise<Record<string, string>> {
+    const props = [
+      "ro.product.model",
+      "ro.product.manufacturer",
+      "ro.build.version.release",
+      "ro.build.version.sdk",
+      "ro.build.display.id",
+      "ro.serialno",
+      "persist.sys.language",
+      "persist.sys.country",
+      "ro.product.cpu.abi",
+      "ro.hardware.chipname",
+      "ro.board.platform",
+    ];
+    const result = await this.execute(
+      `shell getprop ${props.map((p) => `[${p}]`).join(" ")}`,
+    );
+    const info: Record<string, string> = {};
+    for (const prop of props) {
+      const regex = new RegExp(`\\[${prop}\\]:\\s*\\[(.*?)\\]`);
+      const match = result.stdout.match(regex);
+      if (match) {
+        info[prop] = match[1] || "unknown";
+      }
+    }
+    return info;
+  }
+
+  async getScreenInfo(): Promise<{ resolution: string; density: string }> {
+    const result = await this.execute("shell wm size");
+    const densityResult = await this.execute("shell wm density");
+    const resMatch = result.stdout.match(/Physical size:\s*(\S+)/);
+    const denMatch = densityResult.stdout.match(/Physical density:\s*(\S+)/);
+    return {
+      resolution: resMatch?.[1] || "unknown",
+      density: denMatch?.[1] || "unknown",
+    };
+  }
+
+  async getBatteryInfo(): Promise<{
+    level: string;
+    status: string;
+    temperature: string;
+  }> {
+    const result = await this.execute("shell dumpsys battery");
+    const levelMatch = result.stdout.match(/level:\s*(\S+)/);
+    const statusMatch = result.stdout.match(/status:\s*(\S+)/);
+    const tempMatch = result.stdout.match(/temperature:\s*(\S+)/);
+    return {
+      level: levelMatch?.[1] || "unknown",
+      status: statusMatch?.[1] || "unknown",
+      temperature: tempMatch?.[1] || "unknown",
+    };
+  }
+
+  async getStorageInfo(): Promise<
+    { mount: string; total: string; used: string; free: string }[]
+  > {
+    const result = await this.execute("shell df /data /sdcard 2>/dev/null");
+    const lines = result.stdout
+      .split("\n")
+      .filter((l) => l.trim() && !l.startsWith("Filesystem"));
+    return lines.map((line) => {
+      const parts = line.split(/\s+/);
+      return {
+        mount: parts[5] || "/",
+        total: parts[1] || "0",
+        used: parts[2] || "0",
+        free: parts[3] || "0",
+      };
+    });
+  }
+
+  async getNetworkInfo(): Promise<{
+    wifiSsid: string;
+    ipAddress: string;
+  }> {
+    const ssidResult = await this.execute(
+      "shell dumpsys wifi | grep 'mWifiInfo'",
+    );
+    const ipResult = await this.execute("shell ip route show table 0");
+    const ssidMatch = ssidResult.stdout.match(/SSID:\s*"([^"]+)"/);
+    const ipMatch = ipResult.stdout.match(/src\s+(\S+)/);
+    return {
+      wifiSsid: ssidMatch?.[1] || "not connected",
+      ipAddress: ipMatch?.[1] || "unknown",
+    };
+  }
+
   async executeBatch(
     commands: Array<{ cmd: string; label: string }>,
   ): Promise<{ success: boolean; results: AdbResult[] }> {

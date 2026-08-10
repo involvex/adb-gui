@@ -29,6 +29,14 @@ interface AdbWindow {
     error?: string;
     localPath?: string;
   }>;
+  pushFile(
+    remotePath: string,
+    deviceId?: string,
+  ): Promise<{
+    success: boolean;
+    pushedFiles?: string[];
+    error?: string;
+  }>;
   startLogcat(filters: {
     priority?: string;
     buffer?: string;
@@ -46,6 +54,13 @@ interface AdbWindow {
     apkPath?: string;
   }>;
   openFolder(folderPath: string): Promise<{ success: boolean; error?: string }>;
+  getDeviceInfo(deviceId?: string): Promise<{
+    device: Record<string, string>;
+    screen: { resolution: string; density: string };
+    battery: { level: string; status: string; temperature: string };
+    storage: { mount: string; total: string; used: string; free: string }[];
+    network: { wifiSsid: string; ipAddress: string };
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -208,6 +223,14 @@ async function pullFile(remotePath: string): Promise<{
   return adb.pullFile(remotePath, currentDeviceId ?? undefined);
 }
 
+async function pushFile(remotePath: string): Promise<{
+  success: boolean;
+  pushedFiles?: string[];
+  error?: string;
+}> {
+  return adb.pushFile(remotePath, currentDeviceId ?? undefined);
+}
+
 async function startLogcat(filters: {
   priority?: string;
   buffer?: string;
@@ -232,6 +255,16 @@ async function openFolder(
   folderPath: string,
 ): Promise<{ success: boolean; error?: string }> {
   return adb.openFolder(folderPath);
+}
+
+async function getDeviceInfo(): Promise<{
+  device: Record<string, string>;
+  screen: { resolution: string; density: string };
+  battery: { level: string; status: string; temperature: string };
+  storage: { mount: string; total: string; used: string; free: string }[];
+  network: { wifiSsid: string; ipAddress: string };
+}> {
+  return adb.getDeviceInfo(currentDeviceId ?? undefined);
 }
 
 async function installApk(): Promise<{
@@ -263,10 +296,12 @@ export const adbService = {
   getHostCurrentDir,
   listFileEntries,
   pullFile,
+  pushFile,
   startLogcat,
   stopLogcat,
   onLogcatLine,
   openFolder,
+  getDeviceInfo,
   installApk,
 };
 
