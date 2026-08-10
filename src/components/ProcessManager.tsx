@@ -13,6 +13,8 @@ const ProcessManager: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [sortBy, setSortBy] = useState<"pid" | "name">("pid");
 
   const loadProcesses = useCallback(async () => {
     setLoading(true);
@@ -20,6 +22,7 @@ const ProcessManager: React.FC = () => {
     try {
       const result = await adbService.listProcesses();
       setProcesses(result);
+      setLastRefreshed(new Date());
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to list processes";
@@ -48,11 +51,16 @@ const ProcessManager: React.FC = () => {
     }
   };
 
-  const filtered = processes.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.user.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filtered = processes
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.user.toLowerCase().includes(searchTerm.toLowerCase()),
+    )
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      return a.pid - b.pid;
+    });
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -64,15 +72,41 @@ const ProcessManager: React.FC = () => {
               ({filtered.length}/{processes.length})
             </span>
           )}
+          {lastRefreshed && (
+            <span className="text-xs font-normal text-gray-600 ml-2">
+              {lastRefreshed.toLocaleTimeString()}
+            </span>
+          )}
         </h2>
-        <button
-          type="button"
-          onClick={loadProcesses}
-          disabled={loading}
-          className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50"
-        >
-          {loading ? "Loading..." : "Refresh"}
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "pid" | "name")}
+            className="bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1 text-xs outline-none"
+          >
+            <option value="pid">Sort by PID</option>
+            <option value="name">Sort by Name</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              setProcesses([]);
+              setLastRefreshed(null);
+            }}
+            disabled={loading || processes.length === 0}
+            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={loadProcesses}
+            disabled={loading}
+            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {processes.length > 0 && (
@@ -161,7 +195,10 @@ const ProcessManager: React.FC = () => {
 
       {!loading && processes.length === 0 && (
         <div className="text-gray-500 text-sm py-4 text-center">
-          No processes found. Ensure a device is connected via USB debugging.
+          <p className="mb-2">No processes found</p>
+          <p className="text-xs text-gray-600">
+            Connect a device via USB with debugging enabled, then press Refresh
+          </p>
         </div>
       )}
     </div>

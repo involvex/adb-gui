@@ -78,4 +78,10 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:install-apk", { deviceId });
   },
+
+  openFolder(
+    folderPath: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    return ipcRenderer.invoke("adb:open-folder", { folderPath });
+  },
 });

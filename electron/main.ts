@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -208,6 +208,21 @@ ipcMain.handle("adb:logcat-stop", async () => {
   }
   return { success: true };
 });
+
+ipcMain.handle(
+  "adb:open-folder",
+  async (_event, { folderPath }: { folderPath: string }) => {
+    try {
+      await shell.openPath(folderPath);
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to open folder",
+      };
+    }
+  },
+);
 
 ipcMain.handle(
   "adb:install-apk",

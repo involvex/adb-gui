@@ -21,6 +21,7 @@ const sections: { key: Section; label: string }[] = [
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
+  const [packageCount, setPackageCount] = useState<number | null>(null);
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
@@ -39,6 +40,13 @@ function App() {
             }`}
           >
             {s.label}
+            {s.key === "permissions" &&
+              packageCount !== null &&
+              packageCount > 0 && (
+                <span className="ml-1.5 bg-blue-900/50 text-blue-300 text-xs px-1.5 py-0.5 rounded-full">
+                  {packageCount}
+                </span>
+              )}
           </button>
         ))}
       </nav>
@@ -57,7 +65,9 @@ function App() {
         )}
 
         {activeSection === "processes" && <ProcessManager />}
-        {activeSection === "permissions" && <PermissionManager />}
+        {activeSection === "permissions" && (
+          <PermissionManager onCountChange={setPackageCount} />
+        )}
         {activeSection === "files" && <FileExplorer />}
         {activeSection === "quick" && <QuickCommands />}
         {activeSection === "logcat" && <LogcatViewer />}

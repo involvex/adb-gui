@@ -42,6 +42,8 @@ const FileExplorer: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [pulledFolderPath, setPulledFolderPath] = useState<string | null>(null);
 
   const loadDir = useCallback(async (remotePath: string) => {
     setLoading(true);
@@ -55,6 +57,7 @@ const FileExplorer: React.FC = () => {
         setEntries(result.entries);
         setCurrentPath(remotePath);
         setPathInput(remotePath);
+        setLastRefreshed(new Date());
       }
     } catch (err) {
       const msg =
@@ -84,6 +87,7 @@ const FileExplorer: React.FC = () => {
     if (entry.isDirectory) return;
     setStatusMsg(null);
     setError(null);
+    setPulledFolderPath(null);
     try {
       const result = await adbService.pullFile(
         buildPath(currentPath, entry.name),
@@ -96,12 +100,29 @@ const FileExplorer: React.FC = () => {
         setStatusMsg(
           `Pulled "${entry.name}" to ${result.localPath || "local"}`,
         );
-        setTimeout(() => setStatusMsg(null), 5000);
+        if (result.localPath) {
+          const lastSlash = Math.max(
+            result.localPath.lastIndexOf("/"),
+            result.localPath.lastIndexOf("\\"),
+          );
+          setPulledFolderPath(
+            lastSlash > 0 ? result.localPath.substring(0, lastSlash) : null,
+          );
+        }
+        setTimeout(() => {
+          setStatusMsg(null);
+          setPulledFolderPath(null);
+        }, 10000);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Pull failed";
       setError(msg);
     }
+  };
+
+  const handleOpenFolder = async () => {
+    if (!pulledFolderPath) return;
+    await adbService.openFolder(pulledFolderPath);
   };
 
   const dirs = entries.filter((e) => e.isDirectory && !e.isSymlink);
@@ -111,9 +132,16 @@ const FileExplorer: React.FC = () => {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <h2 className="text-lg font-semibold text-gray-100 mb-3">
-        File Explorer
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold text-gray-100">
+          File Explorer
+          {lastRefreshed && (
+            <span className="text-xs font-normal text-gray-600 ml-2">
+              {lastRefreshed.toLocaleTimeString()}
+            </span>
+          )}
+        </h2>
+      </div>
 
       <div className="flex items-center gap-2 mb-3">
         <div className="flex items-center gap-1 text-sm text-gray-400 flex-1 min-w-0 overflow-x-auto">
@@ -168,8 +196,17 @@ const FileExplorer: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 p-2 rounded mb-3 text-sm">
-          {statusMsg}
+        <div className="bg-green-900/20 border border-green-800 text-green-400 p-2 rounded mb-3 text-sm flex items-center justify-between">
+          <span>{statusMsg}</span>
+          {pulledFolderPath && (
+            <button
+              type="button"
+              onClick={handleOpenFolder}
+              className="bg-green-900/50 text-green-300 px-2 py-0.5 rounded hover:bg-green-900/70 transition-colors text-xs font-medium border border-green-700"
+            >
+              Open Folder
+            </button>
+          )}
         </div>
       )}
 
@@ -278,7 +315,10 @@ const FileExplorer: React.FC = () => {
 
       {!loading && entries.length === 0 && !error && (
         <div className="text-gray-500 text-sm py-4 text-center">
-          Connect a device and press Refresh to browse files.
+          <p className="mb-2">No files found in this directory</p>
+          <p className="text-xs text-gray-600">
+            Connect a device via USB with debugging enabled, then press Refresh
+          </p>
         </div>
       )}
     </div>

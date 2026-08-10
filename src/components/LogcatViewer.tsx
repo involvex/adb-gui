@@ -74,6 +74,7 @@ const LogcatViewer: React.FC = () => {
   const [filterPid, setFilterPid] = useState("");
   const [search, setSearch] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
   const rawLinesRef = useRef<LogLine[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
   const pausedQueueRef = useRef<LogLine[]>([]);
@@ -127,6 +128,16 @@ const LogcatViewer: React.FC = () => {
   const handleClear = useCallback(() => {
     rawLinesRef.current = [];
     setLines([]);
+  }, []);
+
+  const handleCopyLine = useCallback(async (line: LogLine) => {
+    try {
+      await navigator.clipboard.writeText(line.raw);
+      setCopiedId(line.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Clipboard write failed silently
+    }
   }, []);
 
   useEffect(() => {
@@ -318,10 +329,20 @@ const LogcatViewer: React.FC = () => {
             ? LEVEL_COLORS[line.level] || "text-gray-300"
             : "text-gray-500";
           return (
-            <div
+            <button
               key={line.id}
-              className={`whitespace-nowrap ${colorClass} hover:bg-gray-800/30 px-1 rounded-sm`}
+              type="button"
+              onClick={() => handleCopyLine(line)}
+              className={`whitespace-nowrap text-left w-full ${colorClass} hover:bg-gray-800/30 px-1 rounded-sm cursor-pointer relative ${
+                copiedId === line.id ? "bg-gray-800/50" : ""
+              }`}
+              title="Click to copy"
             >
+              {copiedId === line.id && (
+                <span className="absolute right-1 top-0 text-[10px] text-green-400 bg-gray-900 px-1 rounded">
+                  Copied
+                </span>
+              )}
               {line.date && line.time ? (
                 <>
                   <span className="text-gray-600">{line.date} </span>
@@ -335,7 +356,7 @@ const LogcatViewer: React.FC = () => {
               ) : (
                 <span>{line.raw}</span>
               )}
-            </div>
+            </button>
           );
         })}
       </div>

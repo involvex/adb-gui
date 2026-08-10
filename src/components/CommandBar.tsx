@@ -1,13 +1,39 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { adbService, type AdbResult } from "../adbService";
 
+const HISTORY_STORAGE_KEY = "adb-gui-command-history";
+const MAX_HISTORY = 50;
+
+function loadHistory(): string[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as string[];
+      if (Array.isArray(parsed)) {
+        return parsed.slice(0, MAX_HISTORY);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveHistory(history: string[]): void {
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // ignore
+  }
+}
+
 const CommandBar: React.FC = () => {
   const [cmd, setCmd] = useState<string>("");
   const [output, setOutput] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<boolean>(false);
-  const historyRef = useRef<string[]>([]);
+  const historyRef = useRef<string[]>(loadHistory());
   const historyIdxRef = useRef<number>(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const outputRef = useRef<HTMLPreElement>(null);
@@ -17,6 +43,17 @@ const CommandBar: React.FC = () => {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [output, expanded]);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   const runCommand = useCallback(async () => {
     const trimmed = cmd.trim();
@@ -37,7 +74,8 @@ const CommandBar: React.FC = () => {
       historyRef.current = [
         trimmed,
         ...historyRef.current.filter((h) => h !== trimmed),
-      ].slice(0, 50);
+      ].slice(0, MAX_HISTORY);
+      saveHistory(historyRef.current);
       historyIdxRef.current = -1;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Command failed";

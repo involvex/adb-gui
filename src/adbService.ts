@@ -45,6 +45,7 @@ interface AdbWindow {
     error?: string;
     apkPath?: string;
   }>;
+  openFolder(folderPath: string): Promise<{ success: boolean; error?: string }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -227,6 +228,12 @@ function onLogcatLine(callback: (line: string) => void): () => void {
   return adb.onLogcatLine(callback);
 }
 
+async function openFolder(
+  folderPath: string,
+): Promise<{ success: boolean; error?: string }> {
+  return adb.openFolder(folderPath);
+}
+
 async function installApk(): Promise<{
   stdout: string;
   stderr: string;
@@ -259,6 +266,7 @@ export const adbService = {
   startLogcat,
   stopLogcat,
   onLogcatLine,
+  openFolder,
   installApk,
 };
 

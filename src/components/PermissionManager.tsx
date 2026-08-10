@@ -1,13 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
 
-const PermissionManager: React.FC = () => {
+interface PermissionManagerProps {
+  onCountChange?: (count: number | null) => void;
+}
+
+const PermissionManager: React.FC<PermissionManagerProps> = ({
+  onCountChange,
+}) => {
   const [packages, setPackages] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [expandedPkgs, setExpandedPkgs] = useState<Set<string>>(new Set());
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [activities, setActivities] = useState<Map<string, string[]>>(
     new Map(),
   );
@@ -27,6 +34,8 @@ const PermissionManager: React.FC = () => {
     try {
       const pkgList = await adbService.listThirdPartyPackages();
       setPackages(pkgList);
+      setLastRefreshed(new Date());
+      onCountChange?.(pkgList.length);
     } catch (err) {
       setError("Failed to list packages");
       console.error("Package list error:", err);
@@ -129,6 +138,11 @@ const PermissionManager: React.FC = () => {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-gray-100">
           Permission Manager
+          {lastRefreshed && (
+            <span className="text-xs font-normal text-gray-600 ml-2">
+              {lastRefreshed.toLocaleTimeString()}
+            </span>
+          )}
         </h2>
         <button
           type="button"
