@@ -266,6 +266,30 @@ export class AdbService {
     };
   }
 
+  async screenshot(localPath: string): Promise<AdbResult> {
+    const remotePath = "/sdcard/screenshot_tmp.png";
+    const result = await this.execute(`shell screencap -p ${remotePath}`);
+    if (result.exitCode !== 0) return result;
+    const pullResult = await this.pull(remotePath, localPath);
+    await this.execute(`shell rm ${remotePath}`);
+    return pullResult;
+  }
+
+  async screenrecord(
+    localPath: string,
+    timeLimit: number = 10,
+  ): Promise<AdbResult> {
+    const remotePath = "/sdcard/record_tmp.mp4";
+    const recordResult = await this.execute(
+      `shell screenrecord --time-limit ${timeLimit} ${remotePath}`,
+      (timeLimit + 5) * 1000,
+    );
+    if (recordResult.exitCode !== 0) return recordResult;
+    const pullResult = await this.pull(remotePath, localPath);
+    await this.execute(`shell rm ${remotePath}`);
+    return pullResult;
+  }
+
   async executeBatch(
     commands: Array<{ cmd: string; label: string }>,
   ): Promise<{ success: boolean; results: AdbResult[] }> {

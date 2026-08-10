@@ -7,10 +7,12 @@ import QuickCommands from "./components/QuickCommands";
 import CommandBar from "./components/CommandBar";
 import LogcatViewer from "./components/LogcatViewer";
 import DeviceInfo from "./components/DeviceInfo";
+import DeviceActions from "./components/DeviceActions";
 
 type Section =
   | "dashboard"
   | "device"
+  | "actions"
   | "processes"
   | "permissions"
   | "files"
@@ -20,6 +22,7 @@ type Section =
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "device", label: "Device Info" },
+  { key: "actions", label: "Actions" },
   { key: "processes", label: "Process Manager" },
   { key: "permissions", label: "Permissions" },
   { key: "files", label: "File Explorer" },
@@ -73,6 +76,7 @@ function App() {
         )}
 
         {activeSection === "device" && <DeviceInfo />}
+        {activeSection === "actions" && <DeviceActions />}
         {activeSection === "processes" && <ProcessManager />}
         {activeSection === "permissions" && (
           <PermissionManager onCountChange={setPackageCount} />

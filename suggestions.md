@@ -11,11 +11,13 @@ Based on analysis of the current codebase, here are categorized feature ideas or
 - Device management (list, select, refresh)
 - Process Manager (list, search, kill, sort by PID/name, clear)
 - Permission Manager (list 3rd-party packages, activities, grant all, launch, package count badge)
-- File Explorer (browse, navigate, pull files, open folder after pull)
-- Quick Commands (execute predefined macros)
+- File Explorer (browse, navigate, pull/push files, open folder after pull)
+- Quick Commands (execute predefined macros, add/edit/delete, variable prompts, import/export)
 - Logcat Viewer (streaming, filters, pause/resume, color coding, click-to-copy)
 - Command Bar (terminal with history, persist to localStorage, Ctrl+K focus)
 - APK Installation (single file)
+- Device Info Panel (model, battery, storage, network)
+- Device Actions (screenshot, screenrecord, reboot, input, settings)
 - Last refreshed timestamps on components
 - Improved empty state messages
 
@@ -356,16 +358,16 @@ Comprehensive documentation.
 
 | Priority | Feature                     | Effort     | Impact | Status  |
 | -------- | --------------------------- | ---------- | ------ | ------- |
-| 1        | File Push Support           | Medium     | High   | Pending |
-| 2        | Device Info Panel           | Low        | Medium | Pending |
+| 1        | File Push Support           | Medium     | High   | ✅ Done |
+| 2        | Device Info Panel           | Low        | Medium | ✅ Done |
 | 3        | Settings Panel              | Medium     | High   | Pending |
 | 4        | WiFi ADB Connection         | Medium     | High   | Pending |
-| 5        | Screenshot/Screenrecord     | Medium     | High   | Pending |
-| 6        | Quick Commands Improvements | Low        | Medium | Pending |
+| 5        | Screenshot/Screenrecord     | Medium     | High   | ✅ Done |
+| 6        | Quick Commands Improvements | Low        | Medium | ✅ Done |
 | 7        | Keyboard Shortcuts          | Low        | Medium | Partial |
 | 8        | Logcat Enhancements         | Low-Medium | Medium | Pending |
 | 9        | Testing Infrastructure      | Medium     | High   | Pending |
-| 10       | Device Actions Panel        | Low        | Medium | Pending |
+| 10       | Device Actions Panel        | Low        | Medium | ✅ Done |
 
 ---
 

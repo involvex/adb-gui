@@ -105,4 +105,27 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:device-info", { deviceId });
   },
+
+  screenshot(deviceId?: string): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:screenshot", { deviceId });
+  },
+
+  screenrecord(
+    timeLimit?: number,
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:screenrecord", { timeLimit, deviceId });
+  },
 });

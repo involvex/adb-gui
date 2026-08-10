@@ -280,6 +280,45 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "adb:screenshot",
+  async (_event, { deviceId }: { deviceId?: string }) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: "Save Screenshot",
+      defaultPath: `screenshot_${Date.now()}.png`,
+      filters: [{ name: "PNG", extensions: ["png"] }],
+    });
+    if (canceled || !filePath) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const result = await svc.screenshot(filePath);
+    return { ...result, localPath: filePath };
+  },
+);
+
+ipcMain.handle(
+  "adb:screenrecord",
+  async (
+    _event,
+    { timeLimit, deviceId }: { timeLimit?: number; deviceId?: string },
+  ) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: "Save Screen Recording",
+      defaultPath: `recording_${Date.now()}.mp4`,
+      filters: [{ name: "MP4", extensions: ["mp4"] }],
+    });
+    if (canceled || !filePath) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const result = await svc.screenrecord(filePath, timeLimit || 10);
+    return { ...result, localPath: filePath };
+  },
+);
+
+ipcMain.handle(
   "adb:install-apk",
   async (_event, { deviceId }: { deviceId?: string }) => {
     if (!win) return { error: "No window", exitCode: 1 };

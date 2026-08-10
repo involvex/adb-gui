@@ -61,6 +61,23 @@ interface AdbWindow {
     storage: { mount: string; total: string; used: string; free: string }[];
     network: { wifiSsid: string; ipAddress: string };
   }>;
+  screenshot(deviceId?: string): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }>;
+  screenrecord(
+    timeLimit?: number,
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -267,6 +284,26 @@ async function getDeviceInfo(): Promise<{
   return adb.getDeviceInfo(currentDeviceId ?? undefined);
 }
 
+async function screenshot(): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.screenshot(currentDeviceId ?? undefined);
+}
+
+async function screenrecord(timeLimit?: number): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.screenrecord(timeLimit, currentDeviceId ?? undefined);
+}
+
 async function installApk(): Promise<{
   stdout: string;
   stderr: string;
@@ -302,6 +339,8 @@ export const adbService = {
   onLogcatLine,
   openFolder,
   getDeviceInfo,
+  screenshot,
+  screenrecord,
   installApk,
 };
 
