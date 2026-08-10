@@ -38,6 +38,13 @@ interface AdbWindow {
   }): Promise<{ success: boolean }>;
   stopLogcat(): Promise<{ success: boolean }>;
   onLogcatLine(callback: (line: string) => void): () => void;
+  installApk(deviceId?: string): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    apkPath?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -220,6 +227,16 @@ function onLogcatLine(callback: (line: string) => void): () => void {
   return adb.onLogcatLine(callback);
 }
 
+async function installApk(): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  apkPath?: string;
+}> {
+  return adb.installApk(currentDeviceId ?? undefined);
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -242,6 +259,7 @@ export const adbService = {
   startLogcat,
   stopLogcat,
   onLogcatLine,
+  installApk,
 };
 
 export default adbService;

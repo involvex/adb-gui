@@ -16,6 +16,7 @@ interface LogLine {
 const MAX_LINES = 10000;
 const LINE_RE =
   /^(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+([VDIWEFS])\s+(\S+?)\s*:\s*(.*)$/;
+const TS_SPLIT = /(?=\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})/;
 
 const LEVEL_COLORS: Record<string, string> = {
   V: "text-gray-500",
@@ -130,29 +131,35 @@ const LogcatViewer: React.FC = () => {
 
   useEffect(() => {
     const unsub = adbService.onLogcatLine((line: string) => {
-      let parsed: LogLine | null = parseLine(line);
-      if (!parsed && line.startsWith("[")) {
-        parsed = {
-          id: ++idCounter,
-          raw: line,
-          date: "",
-          time: "",
-          pid: "",
-          tid: "",
-          level: "",
-          tag: "",
-          message: line,
-        };
-      }
-      if (parsed) {
-        if (paused) {
-          pausedQueueRef.current.push(parsed);
-        } else {
-          rawLinesRef.current = [...rawLinesRef.current, parsed].slice(
-            -MAX_LINES,
-          );
-          setLines([...rawLinesRef.current]);
+      const subLines = line.split(TS_SPLIT).filter(Boolean);
+      const newEntries: LogLine[] = [];
+      for (const sub of subLines) {
+        let parsed: LogLine | null = parseLine(sub);
+        if (!parsed && sub.startsWith("[")) {
+          parsed = {
+            id: ++idCounter,
+            raw: sub,
+            date: "",
+            time: "",
+            pid: "",
+            tid: "",
+            level: "",
+            tag: "",
+            message: sub,
+          };
         }
+        if (parsed) {
+          newEntries.push(parsed);
+        }
+      }
+      if (newEntries.length === 0) return;
+      if (paused) {
+        pausedQueueRef.current.push(...newEntries);
+      } else {
+        rawLinesRef.current = [...rawLinesRef.current, ...newEntries].slice(
+          -MAX_LINES,
+        );
+        setLines([...rawLinesRef.current]);
       }
     });
     return unsub;

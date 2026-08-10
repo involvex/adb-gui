@@ -68,4 +68,14 @@ contextBridge.exposeInMainWorld("adb", {
       ipcRenderer.removeListener("adb:logcat-line", listener);
     };
   },
+
+  installApk(deviceId?: string): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    apkPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:install-apk", { deviceId });
+  },
 });

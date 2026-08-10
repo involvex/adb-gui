@@ -10,6 +10,8 @@ const TopBar: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(getDeviceId());
+  const [installMsg, setInstallMsg] = useState<string | null>(null);
+  const [installing, setInstalling] = useState<boolean>(false);
 
   const loadDevices = async () => {
     setLoading(true);
@@ -49,45 +51,87 @@ const TopBar: React.FC = () => {
     loadDevices();
   };
 
+  const handleInstallApk = async () => {
+    setInstalling(true);
+    setError(null);
+    setInstallMsg(null);
+    try {
+      const result = await adbService.installApk();
+      if (result.error === "cancelled") return;
+      if (result.exitCode === 0) {
+        const name = result.apkPath?.split(/[\\/]/).pop() || "APK";
+        setInstallMsg(`Installed ${name}`);
+        setTimeout(() => setInstallMsg(null), 5000);
+      } else {
+        setError(
+          `Install failed: ${result.stderr || result.error || "unknown error"}`,
+        );
+      }
+    } catch {
+      setError("Failed to install APK");
+    } finally {
+      setInstalling(false);
+    }
+  };
+
   return (
-    <header className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex items-center justify-between shadow-lg">
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg font-bold text-gray-100">ADB GUI</h1>
+    <header className="bg-gray-900 border-b border-gray-800 px-4 py-2">
+      <div className="flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-bold text-gray-100">ADB GUI</h1>
+          <div className="flex items-center gap-2">
+            {loading && (
+              <span className="text-sm text-gray-400">Loading...</span>
+            )}
+            {!loading && error && (
+              <span className="text-sm text-red-400">{error}</span>
+            )}
+            {!loading && !error && devices.length === 0 && (
+              <span className="text-sm text-red-400">No devices</span>
+            )}
+            {!loading &&
+              !error &&
+              devices.length > 0 &&
+              devices.map((d) => (
+                <button
+                  key={d.serial}
+                  type="button"
+                  onClick={() => handleSelect(d.serial)}
+                  className={`px-2 py-0.5 rounded text-xs font-mono transition-colors border ${
+                    activeId === d.serial
+                      ? "bg-green-900/30 text-green-300 border-green-700"
+                      : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700"
+                  }`}
+                >
+                  {d.serial}
+                </button>
+              ))}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          {loading && <span className="text-sm text-gray-400">Loading...</span>}
-          {!loading && error && (
-            <span className="text-sm text-red-400">{error}</span>
-          )}
-          {!loading && !error && devices.length === 0 && (
-            <span className="text-sm text-red-400">No devices</span>
-          )}
-          {!loading &&
-            !error &&
-            devices.length > 0 &&
-            devices.map((d) => (
-              <button
-                key={d.serial}
-                type="button"
-                onClick={() => handleSelect(d.serial)}
-                className={`px-2 py-0.5 rounded text-xs font-mono transition-colors border ${
-                  activeId === d.serial
-                    ? "bg-green-900/30 text-green-300 border-green-700"
-                    : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700"
-                }`}
-              >
-                {d.serial}
-              </button>
-            ))}
+          <button
+            type="button"
+            onClick={handleInstallApk}
+            disabled={installing}
+            className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800 disabled:opacity-50"
+          >
+            {installing ? "Installing..." : "Install APK"}
+          </button>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
+          >
+            Refresh
+          </button>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={handleRefresh}
-        disabled={loading}
-        className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
-      >
-        Refresh
-      </button>
+      {installMsg && (
+        <div className="mt-2 bg-green-900/20 border border-green-800 text-green-400 p-1.5 rounded text-xs">
+          {installMsg}
+        </div>
+      )}
     </header>
   );
 };

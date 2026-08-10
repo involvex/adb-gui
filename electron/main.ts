@@ -209,6 +209,25 @@ ipcMain.handle("adb:logcat-stop", async () => {
   return { success: true };
 });
 
+ipcMain.handle(
+  "adb:install-apk",
+  async (_event, { deviceId }: { deviceId?: string }) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: "Select APK to install",
+      filters: [{ name: "APK files", extensions: ["apk"] }],
+      properties: ["openFile"],
+    });
+    if (canceled || filePaths.length === 0) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const apkPath = filePaths[0];
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const result = await svc.execute(`install -r "${apkPath}"`, 120000);
+    return { ...result, apkPath };
+  },
+);
+
 app.on("window-all-closed", () => {
   if (logcatProcess) {
     logcatProcess.kill();
