@@ -46,7 +46,7 @@ const TopBar: React.FC<{ onDeviceSelect?: (deviceId: string) => void }> = ({
         id: serial,
       }));
       setDevices(devices);
-    } catch (err) {
+    } catch {
       setError("Failed to refresh devices");
     } finally {
       setLoading(false);

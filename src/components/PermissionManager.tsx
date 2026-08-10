@@ -32,7 +32,7 @@ const PermissionManager: React.FC = () => {
       await adbService.grantPermissions(packageName);
       setStatusMsg(`Permissions granted to ${packageName}`);
       setTimeout(() => setStatusMsg(null), 3000);
-    } catch (err) {
+    } catch {
       setError(`Failed to grant permissions to ${packageName}`);
       setStatusMsg(null);
     }

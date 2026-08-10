@@ -144,7 +144,7 @@ const ProcessManager: React.FC = () => {
 
       {!loading && processes.length === 0 && (
         <div className="text-gray-500 text-sm py-4 text-center">
-          Click "Search" to load processes
+          Click &quot;Search&quot; to load processes
         </div>
       )}
     </div>
