@@ -1,1 +1,23 @@
-"use strict";const e=require("electron");e.contextBridge.exposeInMainWorld("adb",{execute(i){return e.ipcRenderer.invoke("adb:execute",i)},listDevices(){return e.ipcRenderer.invoke("adb:list-devices")},isDeviceConnected(i){return e.ipcRenderer.invoke("adb:is-device-connected",i)},getADBInfo(){return e.ipcRenderer.invoke("adb:get-info")},executeWithDevice(i,n){return e.ipcRenderer.invoke("adb:execute-device",{cmd:i,deviceId:n})}});
+let electron = require("electron");
+//#region electron/preload.ts
+electron.contextBridge.exposeInMainWorld("adb", {
+	execute(cmd) {
+		return electron.ipcRenderer.invoke("adb:execute", cmd);
+	},
+	listDevices() {
+		return electron.ipcRenderer.invoke("adb:list-devices");
+	},
+	isDeviceConnected(deviceId) {
+		return electron.ipcRenderer.invoke("adb:is-device-connected", deviceId);
+	},
+	getADBInfo() {
+		return electron.ipcRenderer.invoke("adb:get-info");
+	},
+	executeWithDevice(cmd, deviceId) {
+		return electron.ipcRenderer.invoke("adb:execute-device", {
+			cmd,
+			deviceId
+		});
+	}
+});
+//#endregion
