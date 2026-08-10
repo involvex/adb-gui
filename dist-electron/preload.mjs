@@ -1,1 +1,14 @@
-let e=require("electron");e.contextBridge.exposeInMainWorld(`adb`,{execute(t){return e.ipcRenderer.invoke(`adb:execute`,t)},listDevices(){return e.ipcRenderer.invoke(`adb:list-devices`)},isDeviceConnected(t){return e.ipcRenderer.invoke(`adb:is-device-connected`,t)},getADBInfo(){return e.ipcRenderer.invoke(`adb:get-info`)},executeWithDevice(t,n){return e.ipcRenderer.invoke(`adb:execute-device`,{cmd:t,deviceId:n})}});
+let electron = require("electron");
+//#region electron/preload.ts
+electron.contextBridge.exposeInMainWorld("adb", {
+	execute(cmd, deviceId) {
+		return electron.ipcRenderer.invoke("adb:execute", {
+			cmd,
+			deviceId
+		});
+	},
+	listDevices() {
+		return electron.ipcRenderer.invoke("adb:list-devices");
+	}
+});
+//#endregion

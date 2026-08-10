@@ -1,4 +1,12 @@
-const adb = window.adb;
+interface AdbWindow {
+  execute(
+    cmd: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  listDevices(): Promise<string[]>;
+}
+
+const adb = window.adb as AdbWindow;
 
 export interface AdbResult {
   stdout: string;
@@ -6,8 +14,18 @@ export interface AdbResult {
   exitCode: number;
 }
 
+let currentDeviceId: string | null = null;
+
+export function setDeviceId(id: string | null): void {
+  currentDeviceId = id;
+}
+
+export function getDeviceId(): string | null {
+  return currentDeviceId;
+}
+
 async function execute(cmd: string): Promise<AdbResult> {
-  return adb.execute(cmd);
+  return adb.execute(cmd, currentDeviceId ?? undefined);
 }
 
 async function getConnectedDevices(): Promise<string[]> {
@@ -21,21 +39,12 @@ async function getConnectedDevices(): Promise<string[]> {
     .map((line: string) => line.split("\t")[0]);
 }
 
-async function isDeviceConnected(deviceId: string): Promise<boolean> {
-  try {
-    await adb.execute(`device ${deviceId}`);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function getADBInfo(): Promise<{
   version: string;
   path: string;
   features: string[];
 }> {
-  const result = await adb.execute("version");
+  const result = await execute("version");
   const lines = result.stdout.split("\n");
   return {
     version: lines[0]?.trim() || "unknown",
@@ -45,7 +54,7 @@ async function getADBInfo(): Promise<{
 }
 
 async function listPackages(): Promise<string[]> {
-  const result = await adb.execute("pm list packages");
+  const result = await execute("pm list packages");
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("package:"))
@@ -53,7 +62,7 @@ async function listPackages(): Promise<string[]> {
 }
 
 async function listThirdPartyPackages(): Promise<string[]> {
-  const result = await adb.execute("pm list packages -3");
+  const result = await execute("pm list packages -3");
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("package:"))
@@ -61,11 +70,11 @@ async function listThirdPartyPackages(): Promise<string[]> {
 }
 
 async function grantPermissions(packageName: string): Promise<AdbResult> {
-  return adb.execute(`pm grant ${packageName} --user 0 --all-permissions`);
+  return execute(`pm grant ${packageName} --user 0 --all-permissions`);
 }
 
 async function listPermissions(packageName: string): Promise<string[]> {
-  const result = await adb.execute(`pm list permissions ${packageName}`);
+  const result = await execute(`pm list permissions ${packageName}`);
   return result.stdout
     .split("\n")
     .filter((line: string) => line.includes("name:"))
@@ -75,7 +84,7 @@ async function listPermissions(packageName: string): Promise<string[]> {
 async function listProcesses(): Promise<
   { user: string; pid: number; name: string }[]
 > {
-  const result = await adb.execute("shell ps -A -o USER,PID,NAME");
+  const result = await execute("shell ps -A -o USER,PID,NAME");
   const processes: { user: string; pid: number; name: string }[] = [];
   const lines = result.stdout.trim().split("\n");
   for (const line of lines) {
@@ -92,33 +101,32 @@ async function listProcesses(): Promise<
 }
 
 async function forceStop(packageName: string): Promise<AdbResult> {
-  return adb.execute(`shell am force-stop ${packageName}`);
+  return execute(`shell am force-stop ${packageName}`);
 }
 
 async function pull(remotePath: string, localPath: string): Promise<AdbResult> {
-  return adb.execute(`pull ${remotePath} ${localPath}`);
+  return execute(`pull ${remotePath} ${localPath}`);
 }
 
 async function push(localPath: string, remotePath: string): Promise<AdbResult> {
-  return adb.execute(`push ${localPath} ${remotePath}`);
+  return execute(`push ${localPath} ${remotePath}`);
 }
 
 async function listDirectory(remotePath: string): Promise<AdbResult> {
-  return adb.execute(`shell ls -l ${remotePath}`);
+  return execute(`shell ls -l ${remotePath}`);
 }
 
 async function getShellCurrentDir(): Promise<AdbResult> {
-  return adb.execute("shell pwd");
+  return execute("shell pwd");
 }
 
 async function getHostCurrentDir(): Promise<AdbResult> {
-  return adb.execute("pwd");
+  return execute("pwd");
 }
 
 export const adbService = {
   execute,
   getConnectedDevices,
-  isDeviceConnected,
   getADBInfo,
   listPackages,
   listThirdPartyPackages,

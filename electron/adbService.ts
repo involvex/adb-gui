@@ -20,7 +20,7 @@ export class AdbService {
     if (this.deviceId) {
       return `adb -s ${this.deviceId} ${cmd}`;
     }
-    return cmd;
+    return `adb ${cmd}`;
   }
 
   async execute(cmd: string, timeout: number = 10000): Promise<AdbResult> {

@@ -40,32 +40,17 @@ function createWindow() {
   }
 }
 
-ipcMain.handle("adb:execute", async (_event, cmd: string) => {
-  return adb.execute(cmd);
-});
+ipcMain.handle(
+  "adb:execute",
+  async (_event, { cmd, deviceId }: { cmd: string; deviceId?: string }) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.execute(cmd);
+  },
+);
 
 ipcMain.handle("adb:list-devices", async () => {
   return adb.getConnectedDevices();
 });
-
-ipcMain.handle("adb:is-device-connected", async (_event, deviceId: string) => {
-  return adb.isDeviceConnected(deviceId);
-});
-
-ipcMain.handle("adb:get-info", async () => {
-  return adb.getADBInfo();
-});
-
-ipcMain.handle(
-  "adb:execute-device",
-  async (_event, { cmd, deviceId }: { cmd: string; deviceId?: string }) => {
-    if (deviceId) {
-      const deviceAdb = new AdbService({ deviceId });
-      return deviceAdb.execute(cmd);
-    }
-    return adb.execute(cmd);
-  },
-);
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
