@@ -1,0 +1,41 @@
+{
+	"name": "adb-gui",
+	"version": "0.0.0",
+	"private": true,
+	"description": "A Gui for ADB Commands",
+	"author": "involvex",
+	"type": "module",
+	"main": "dist-electron/main.js",
+	"scripts": {
+		"prebuild": "bun run format && bun run lint && bun run typecheck",
+		"build": "tsc && vite build && electron-builder",
+		"dev": "vite",
+		"format": "prettier . --write",
+		"lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+		"preview": "vite preview",
+		"typecheck": "tsc --noEmit"
+	},
+	"prettier": "@involvex/prettier-config",
+	"dependencies": {
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@involvex/prettier-config": "^0.0.5",
+		"@types/react": "^18.2.64",
+		"@types/react-dom": "^18.2.21",
+		"@typescript-eslint/eslint-plugin": "^7.1.1",
+		"@typescript-eslint/parser": "^7.1.1",
+		"@vitejs/plugin-react": "^4.2.1",
+		"electron": "^30.0.1",
+		"electron-builder": "^24.13.3",
+		"eslint": "^8.57.0",
+		"eslint-plugin-react-hooks": "^4.6.0",
+		"eslint-plugin-react-refresh": "^0.4.5",
+		"prettier": "^3.9.6",
+		"typescript": "^5.2.2",
+		"vite": "^5.1.6",
+		"vite-plugin-electron": "^0.28.6",
+		"vite-plugin-electron-renderer": "^0.14.5"
+	}
+}
