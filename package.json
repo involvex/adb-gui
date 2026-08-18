@@ -6,6 +6,9 @@
   "author": "involvex",
   "type": "module",
   "main": "dist-electron/main.js",
+  "bin": {
+    "adb-gui": "./src/cli.ts"
+  },
   "scripts": {
     "dev": "bun vite",
     "prebuild": "bun run format && bun run typecheck && bun run lint:fix",
