@@ -14,8 +14,9 @@ interface LogLine {
 }
 
 const MAX_LINES = 10000;
+// Improved threadtime regex: matches date, time, pid, tid, level, tag, and remaining message (even if empty or contains colons)
 const LINE_RE =
-  /^(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+([VDIWEFS])\s+(\S+?)\s*:\s*(.*)$/;
+  /^(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+([VDIWEFS])\s+(.*?)\s*:\s?(.*)$/;
 const TS_SPLIT = /(?=\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})/;
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -59,8 +60,8 @@ function parseLine(raw: string): LogLine | null {
     pid: match[3],
     tid: match[4],
     level: match[5],
-    tag: match[6],
-    message: match[7],
+    tag: match[6].trim(),
+    message: match[7] !== undefined ? match[7] : "",
   };
 }
 
@@ -74,7 +75,10 @@ const LogcatViewer: React.FC = () => {
   const [filterPid, setFilterPid] = useState("");
   const [search, setSearch] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<number | null>(null);
+  const [copiedStatus, setCopiedStatus] = useState<string | null>(null);
+
   const rawLinesRef = useRef<LogLine[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
   const pausedQueueRef = useRef<LogLine[]>([]);
@@ -96,6 +100,8 @@ const LogcatViewer: React.FC = () => {
     rawLinesRef.current = [];
     pausedQueueRef.current = [];
     setLines([]);
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
     setRunning(true);
     setPaused(false);
     await adbService.startLogcat({
@@ -128,17 +134,79 @@ const LogcatViewer: React.FC = () => {
   const handleClear = useCallback(() => {
     rawLinesRef.current = [];
     setLines([]);
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
   }, []);
 
-  const handleCopyLine = useCallback(async (line: LogLine) => {
+  const filtered = search
+    ? lines.filter((l) => l.raw.toLowerCase().includes(search.toLowerCase()))
+    : lines;
+
+  const handleCopySelected = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const selectedLines = rawLinesRef.current
+      .filter((l) => selectedIds.has(l.id))
+      .map((l) => l.raw);
+    if (selectedLines.length === 0) return;
     try {
-      await navigator.clipboard.writeText(line.raw);
-      setCopiedId(line.id);
-      setTimeout(() => setCopiedId(null), 1500);
+      await navigator.clipboard.writeText(selectedLines.join("\n"));
+      setCopiedStatus(`Copied ${selectedLines.length} line(s)`);
+      setTimeout(() => setCopiedStatus(null), 2000);
     } catch {
       // Clipboard write failed silently
     }
+  }, [selectedIds]);
+
+  const handleSelectAll = useCallback(() => {
+    const allFilteredIds = new Set(filtered.map((l) => l.id));
+    setSelectedIds(allFilteredIds);
+  }, [filtered]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
   }, []);
+
+  const handleLineClick = useCallback(
+    (e: React.MouseEvent, line: LogLine, index: number) => {
+      e.preventDefault();
+      const newSelected = new Set(selectedIds);
+
+      if (e.shiftKey && lastSelectedId !== null) {
+        // Range selection based on filtered items view order
+        const lastIdx = filtered.findIndex((l) => l.id === lastSelectedId);
+        if (lastIdx !== -1) {
+          const start = Math.min(lastIdx, index);
+          const end = Math.max(lastIdx, index);
+          for (let i = start; i <= end; i++) {
+            newSelected.add(filtered[i].id);
+          }
+        } else {
+          newSelected.add(line.id);
+        }
+      } else if (e.ctrlKey || e.metaKey) {
+        // Toggle selection
+        if (newSelected.has(line.id)) {
+          newSelected.delete(line.id);
+        } else {
+          newSelected.add(line.id);
+        }
+        setLastSelectedId(line.id);
+      } else {
+        // Single selection
+        if (newSelected.size === 1 && newSelected.has(line.id)) {
+          newSelected.clear();
+          setLastSelectedId(null);
+        } else {
+          newSelected.clear();
+          newSelected.add(line.id);
+          setLastSelectedId(line.id);
+        }
+      }
+      setSelectedIds(newSelected);
+    },
+    [selectedIds, lastSelectedId, filtered],
+  );
 
   useEffect(() => {
     const unsub = adbService.onLogcatLine((line: string) => {
@@ -180,23 +248,85 @@ const LogcatViewer: React.FC = () => {
     if (autoScroll && listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [lines, autoScroll]);
+  }, [autoScroll]);
 
-  const filtered = search
-    ? lines.filter((l) => l.raw.toLowerCase().includes(search.toLowerCase()))
-    : lines;
+  // Keyboard shortcuts for copy / select all / clear
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          handleCopySelected();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        // If focus is inside the log viewer container or active
+        if (
+          listRef.current?.contains(document.activeElement) ||
+          document.activeElement === document.body
+        ) {
+          e.preventDefault();
+          handleSelectAll();
+        }
+      } else if (e.key === "Escape") {
+        handleClearSelection();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIds, handleCopySelected, handleSelectAll, handleClearSelection]);
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col h-full">
+    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 flex flex-col h-full select-none">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-gray-100">Logcat Viewer</h2>
-        <button
-          type="button"
-          onClick={handleClear}
-          className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
-        >
-          Clear
-        </button>
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-100">Logcat Viewer</h2>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2 bg-gray-800 px-2.5 py-1 rounded border border-gray-700 text-xs">
+              <span className="text-cyan-300 font-medium">
+                {selectedIds.size} selected
+              </span>
+              <button
+                type="button"
+                onClick={handleCopySelected}
+                className="bg-cyan-900/40 text-cyan-200 hover:bg-cyan-900/70 px-2 py-0.5 rounded transition-colors border border-cyan-800 font-medium"
+              >
+                Copy Selected
+              </button>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-gray-400 hover:text-gray-200 px-1"
+                title="Clear selection (Esc)"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          {copiedStatus && (
+            <span className="text-xs text-green-400 bg-green-950/60 border border-green-800 px-2 py-0.5 rounded animate-pulse">
+              {copiedStatus}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm border border-gray-700"
+              title="Ctrl+A"
+            >
+              Select All
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleClear}
+            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -231,7 +361,7 @@ const LogcatViewer: React.FC = () => {
           </button>
         )}
 
-        <label className="flex items-center gap-1 text-xs text-gray-400 ml-2">
+        <label className="flex items-center gap-1 text-xs text-gray-400 ml-2 cursor-pointer">
           <input
             type="checkbox"
             checked={autoScroll}
@@ -313,7 +443,7 @@ const LogcatViewer: React.FC = () => {
 
       <div
         ref={listRef}
-        className="flex-1 bg-gray-950 border border-gray-800 rounded p-2 overflow-y-auto font-mono text-xs leading-5 min-h-[200px] max-h-[calc(100vh-380px)]"
+        className="flex-1 bg-gray-950 border border-gray-800 rounded p-2 overflow-y-auto font-mono text-xs leading-5 min-h-[200px] max-h-[calc(100vh-380px)] outline-none focus:border-gray-700"
       >
         {filtered.length === 0 && (
           <div className="text-gray-500 py-4 text-center">
@@ -324,7 +454,8 @@ const LogcatViewer: React.FC = () => {
               : "Click Start to begin capturing logs"}
           </div>
         )}
-        {filtered.map((line) => {
+        {filtered.map((line, index) => {
+          const isSelected = selectedIds.has(line.id);
           const colorClass = line.level
             ? LEVEL_COLORS[line.level] || "text-gray-300"
             : "text-gray-500";
@@ -332,17 +463,23 @@ const LogcatViewer: React.FC = () => {
             <button
               key={line.id}
               type="button"
-              onClick={() => handleCopyLine(line)}
-              className={`whitespace-nowrap text-left w-full ${colorClass} hover:bg-gray-800/30 px-1 rounded-sm cursor-pointer relative ${
-                copiedId === line.id ? "bg-gray-800/50" : ""
+              onClick={(e) => handleLineClick(e, line, index)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  handleLineClick(
+                    e as unknown as React.MouseEvent,
+                    line,
+                    index,
+                  );
+                }
+              }}
+              className={`whitespace-nowrap text-left w-full px-1 rounded-sm cursor-pointer transition-colors block ${
+                isSelected
+                  ? "bg-blue-900/40 border-l-2 border-blue-500 text-blue-100"
+                  : `hover:bg-gray-800/30 ${colorClass}`
               }`}
-              title="Click to copy"
+              title="Click to select, Shift+Click for range, Ctrl+Click for multi-select"
             >
-              {copiedId === line.id && (
-                <span className="absolute right-1 top-0 text-[10px] text-green-400 bg-gray-900 px-1 rounded">
-                  Copied
-                </span>
-              )}
               {line.date && line.time ? (
                 <>
                   <span className="text-gray-600">{line.date} </span>
@@ -351,7 +488,11 @@ const LogcatViewer: React.FC = () => {
                   <span className="text-gray-600">{line.tid.padStart(5)} </span>
                   <span className="font-semibold">{line.level} </span>
                   <span className="text-cyan-400">{line.tag}: </span>
-                  <span className="text-gray-300">{line.message}</span>
+                  <span
+                    className={isSelected ? "text-blue-100" : "text-gray-300"}
+                  >
+                    {line.message}
+                  </span>
                 </>
               ) : (
                 <span>{line.raw}</span>
@@ -367,6 +508,7 @@ const LogcatViewer: React.FC = () => {
           {search && filtered.length !== lines.length
             ? ` | ${filtered.length.toLocaleString()} visible`
             : ""}
+          {selectedIds.size > 0 ? ` | ${selectedIds.size} selected` : ""}
         </span>
         <span>
           Buffer: {buffer}

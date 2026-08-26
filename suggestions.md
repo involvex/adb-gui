@@ -13,7 +13,7 @@ Based on analysis of the current codebase, here are categorized feature ideas or
 - Permission Manager (list 3rd-party packages, activities, grant all, launch, package count badge)
 - File Explorer (browse, navigate, pull/push files, open folder after pull)
 - Quick Commands (execute predefined macros, add/edit/delete, variable prompts, import/export)
-- Logcat Viewer (streaming, filters, pause/resume, color coding, click-to-copy)
+- Logcat Viewer (streaming, filters, pause/resume, color coding, multi-row selection & copy, keyboard shortcuts)
 - Command Bar (terminal with history, persist to localStorage, Ctrl+K focus)
 - APK Installation (single file)
 - Device Info Panel (model, battery, storage, network)
@@ -133,6 +133,7 @@ Improve existing logcat viewer.
 - Timestamp format options (relative vs absolute)
 - Log entry count limit configuration
 - Bookmark/collapse log sections
+- Multi-row selection and copy ✅
 
 ### 9. Quick Commands Improvements
 
@@ -365,7 +366,7 @@ Comprehensive documentation.
 | 5        | Screenshot/Screenrecord     | Medium     | High   | ✅ Done |
 | 6        | Quick Commands Improvements | Low        | Medium | ✅ Done |
 | 7        | Keyboard Shortcuts          | Low        | Medium | Partial |
-| 8        | Logcat Enhancements         | Low-Medium | Medium | Pending |
+| 8        | Logcat Enhancements         | Low-Medium | Medium | ✅ Done |
 | 9        | Testing Infrastructure      | Medium     | High   | Pending |
 | 10       | Device Actions Panel        | Low        | Medium | ✅ Done |
 
@@ -380,10 +381,11 @@ Comprehensive documentation.
 5. Add loading skeleton components ⏭️ (skipped)
 6. Keyboard shortcut to focus Command Bar ✅
 7. Sort processes by name/PID option ✅
-8. Copy logcat line on click ✅
+8. Copy logcat line on click / Multi-select & Copy ✅
 9. Add "Open containing folder" after file pull ✅
 10. Persist CommandBar history to localStorage ✅
+11. Add Logcat search filter highlighting / debouncing ⏳ (Next planned quick win)
 
 ---
 
-_Generated from codebase analysis. Updated: 2026-08-11_
+_Generated from codebase analysis. Updated: 2026-08-27_
