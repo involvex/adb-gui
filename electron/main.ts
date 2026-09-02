@@ -466,6 +466,13 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "adb:pair",
+  async (_event, target: string, pairingCode: string) => {
+    return adb.pair(target, pairingCode);
+  },
+);
+
 app.on("window-all-closed", () => {
   if (logcatProcess) {
     logcatProcess.kill();

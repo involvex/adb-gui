@@ -201,4 +201,16 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:export-logcat", { lines });
   },
+
+  pair(
+    target: string,
+    pairingCode: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+  }> {
+    return ipcRenderer.invoke("adb:pair", target, pairingCode);
+  },
 });

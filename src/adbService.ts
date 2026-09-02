@@ -126,6 +126,15 @@ interface AdbWindow {
     error?: string;
     localPath?: string;
   }>;
+  pair(
+    target: string,
+    pairingCode: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -455,6 +464,18 @@ async function exportLogcat(lines: string): Promise<{
   return adb.exportLogcat(lines);
 }
 
+async function pair(
+  target: string,
+  pairingCode: string,
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+}> {
+  return adb.pair(target, pairingCode);
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -490,6 +511,7 @@ export const adbService = {
   toggleApp,
   exportApk,
   exportLogcat,
+  pair,
 };
 
 export default adbService;

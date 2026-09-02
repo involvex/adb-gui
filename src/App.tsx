@@ -13,6 +13,7 @@ import WifiConnection from "./components/WifiConnection";
 import BackupManager from "./components/BackupManager";
 import AppManager from "./components/AppManager";
 import NotificationManager from "./components/NotificationManager";
+import ShellSession from "./components/ShellSession";
 import { useAnnouncer } from "./announcer";
 import { settingsStore } from "./appSettings";
 
@@ -29,7 +30,8 @@ type Section =
   | "settings"
   | "backup"
   | "apps"
-  | "notifications";
+  | "notifications"
+  | "shell";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -45,6 +47,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "settings", label: "Settings" },
   { key: "backup", label: "Backup" },
   { key: "notifications", label: "Notifications" },
+  { key: "shell", label: "Shell" },
 ];
 
 function App() {
@@ -175,6 +178,7 @@ function App() {
         {activeSection === "settings" && <Settings />}
         {activeSection === "backup" && <BackupManager />}
         {activeSection === "notifications" && <NotificationManager />}
+        {activeSection === "shell" && <ShellSession />}
       </main>
 
       <CommandBar />

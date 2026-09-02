@@ -421,6 +421,10 @@ export class AdbService {
     }
     return this.pull(apkPath, localPath);
   }
+
+  async pair(target: string, pairingCode: string): Promise<AdbResult> {
+    return this.execute(`pair ${target} ${pairingCode}`, 30000);
+  }
 }
 
 export const adbService = new AdbService();
