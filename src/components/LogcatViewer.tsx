@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
+import { logcatBookmarkStore, LogcatBookmark } from "../logcatBookmarkStore";
+import LogcatBookmarks from "./LogcatBookmarks";
 
 interface LogLine {
   id: number;
@@ -136,6 +138,26 @@ const LogcatViewer: React.FC = () => {
     setLines([]);
     setSelectedIds(new Set());
     setLastSelectedId(null);
+  }, []);
+
+  const handleSaveBookmark = useCallback(
+    (title: string) => {
+      logcatBookmarkStore.add({
+        title,
+        priority,
+        buffer,
+        tags,
+        filterPid,
+      });
+    },
+    [priority, buffer, tags, filterPid],
+  );
+
+  const handleApplyBookmark = useCallback((bookmark: LogcatBookmark) => {
+    setPriority(bookmark.priority);
+    setBuffer(bookmark.buffer);
+    setTags(bookmark.tags);
+    setFilterPid(bookmark.filterPid);
   }, []);
 
   const filtered = search
@@ -371,6 +393,11 @@ const LogcatViewer: React.FC = () => {
           Auto-scroll
         </label>
       </div>
+
+      <LogcatBookmarks
+        onApplyBookmark={handleApplyBookmark}
+        onSavePrompt={handleSaveBookmark}
+      />
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="flex items-center gap-1">
