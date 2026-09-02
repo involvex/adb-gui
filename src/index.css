@@ -43,3 +43,55 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
+
+/* Keyboard focus outlines */
+*:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* High contrast mode */
+.high-contrast {
+  --hc-bg: #000000;
+  --hc-text: #ffffff;
+  --hc-border: #ffffff;
+  --hc-accent: #00ffff;
+}
+
+.high-contrast body,
+.high-contrast {
+  background-color: var(--hc-bg) !important;
+  color: var(--hc-text) !important;
+}
+
+.high-contrast .bg-gray-950,
+.high-contrast .bg-gray-900,
+.high-contrast .bg-gray-800 {
+  background-color: var(--hc-bg) !important;
+}
+
+.high-contrast .text-gray-100,
+.high-contrast .text-gray-200,
+.high-contrast .text-gray-300,
+.high-contrast .text-gray-400,
+.high-contrast .text-gray-500 {
+  color: var(--hc-text) !important;
+}
+
+.high-contrast .border-gray-700,
+.high-contrast .border-gray-800 {
+  border-color: var(--hc-border) !important;
+}
+
+.high-contrast button:focus-visible,
+.high-contrast input:focus-visible,
+.high-contrast select:focus-visible,
+.high-contrast textarea:focus-visible {
+  outline: 2px solid var(--hc-accent) !important;
+  outline-offset: 2px !important;
+}
+
+.high-contrast a {
+  color: var(--hc-accent) !important;
+  text-decoration: underline !important;
+}

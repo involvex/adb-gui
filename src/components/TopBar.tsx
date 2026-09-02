@@ -154,6 +154,7 @@ const TopBar: React.FC = () => {
                       onClick={() => handleCopySerial(d.serial)}
                       className="text-gray-500 hover:text-gray-300 transition-colors"
                       title="Copy serial to clipboard"
+                      aria-label="Copy serial to clipboard"
                     >
                       📋
                     </button>
@@ -177,6 +178,7 @@ const TopBar: React.FC = () => {
             disabled={loading}
             className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
             title="Refresh devices (Ctrl+R)"
+            aria-label="Refresh devices"
           >
             Refresh
           </button>

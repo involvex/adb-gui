@@ -58,6 +58,7 @@ const LogcatBookmarks: React.FC<LogcatBookmarksProps> = ({
             onClick={() => handleRemove(bookmark.id)}
             className="text-gray-500 hover:text-gray-300 text-xs w-4 h-4 flex items-center justify-center"
             title={`Remove ${bookmark.title}`}
+            aria-label={`Remove bookmark ${bookmark.title}`}
           >
             ×
           </button>
@@ -107,6 +108,7 @@ const LogcatBookmarks: React.FC<LogcatBookmarksProps> = ({
           }}
           className="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 rounded px-1.5 py-0.5"
           title="Save current filter as bookmark"
+          aria-label="Save current filter as bookmark"
         >
           + Save
         </button>
@@ -121,6 +123,7 @@ const LogcatBookmarks: React.FC<LogcatBookmarksProps> = ({
           }}
           className="text-xs text-gray-500 hover:text-gray-300 border border-gray-700 rounded px-1.5 py-0.5"
           title="Save current filter as bookmark"
+          aria-label="Save current filter as bookmark"
         >
           + Save current filter
         </button>

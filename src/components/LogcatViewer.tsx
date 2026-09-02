@@ -333,6 +333,7 @@ const LogcatViewer: React.FC = () => {
                 onClick={handleCopySelected}
                 className="bg-cyan-900/40 text-cyan-200 hover:bg-cyan-900/70 px-2 py-0.5 rounded transition-colors border border-cyan-800 font-medium"
                 title="Copy selected lines (Ctrl+C)"
+                aria-label="Copy selected lines"
               >
                 Copy Selected
               </button>
@@ -341,6 +342,7 @@ const LogcatViewer: React.FC = () => {
                 onClick={handleClearSelection}
                 className="text-gray-400 hover:text-gray-200 px-1"
                 title="Clear selection (Esc)"
+                aria-label="Clear selection"
               >
                 ✕
               </button>
@@ -359,6 +361,7 @@ const LogcatViewer: React.FC = () => {
               onClick={handleSelectAll}
               className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm border border-gray-700"
               title="Ctrl+A"
+              aria-label="Select all log lines"
             >
               Select All
             </button>
@@ -368,6 +371,7 @@ const LogcatViewer: React.FC = () => {
             onClick={handleClear}
             className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
             title="Clear all log lines"
+            aria-label="Clear all log lines"
           >
             Clear
           </button>
@@ -377,6 +381,7 @@ const LogcatViewer: React.FC = () => {
               onClick={handleExport}
               className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm border border-blue-800"
               title="Export logs to file"
+              aria-label="Export logs to file"
             >
               Export
             </button>
@@ -391,6 +396,7 @@ const LogcatViewer: React.FC = () => {
             onClick={handleStart}
             className="bg-green-900/30 text-green-300 px-4 py-1.5 rounded hover:bg-green-900/50 transition-colors text-sm font-medium border border-green-800"
             title="Start logcat (Ctrl+L)"
+            aria-label="Start logcat"
           >
             Start
           </button>
@@ -400,6 +406,7 @@ const LogcatViewer: React.FC = () => {
             onClick={handleStop}
             className="bg-red-900/30 text-red-300 px-4 py-1.5 rounded hover:bg-red-900/50 transition-colors text-sm font-medium border border-red-800"
             title="Stop logcat"
+            aria-label="Stop logcat"
           >
             Stop
           </button>
@@ -409,6 +416,7 @@ const LogcatViewer: React.FC = () => {
             type="button"
             onClick={handlePauseToggle}
             title={paused ? "Resume logcat" : "Pause logcat"}
+            aria-label={paused ? "Resume logcat" : "Pause logcat"}
             className={`px-4 py-1.5 rounded text-sm font-medium border transition-colors ${
               paused
                 ? "bg-yellow-900/30 text-yellow-300 border-yellow-800 hover:bg-yellow-900/50"

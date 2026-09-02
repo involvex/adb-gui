@@ -4,6 +4,7 @@ export interface AppSettings {
   defaultPriority: string;
   autoScrollLogcat: boolean;
   theme: "dark" | "light";
+  highContrast: boolean;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -12,6 +13,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultPriority: "I",
   autoScrollLogcat: true,
   theme: "dark",
+  highContrast: false,
 };
 
 const SETTINGS_KEY = "adb-gui-app-settings";

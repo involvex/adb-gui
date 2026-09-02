@@ -12,6 +12,9 @@ import Settings from "./components/Settings";
 import WifiConnection from "./components/WifiConnection";
 import BackupManager from "./components/BackupManager";
 import AppManager from "./components/AppManager";
+import NotificationManager from "./components/NotificationManager";
+import { useAnnouncer } from "./announcer";
+import { settingsStore } from "./appSettings";
 
 type Section =
   | "dashboard"
@@ -25,7 +28,8 @@ type Section =
   | "logcat"
   | "settings"
   | "backup"
-  | "apps";
+  | "apps"
+  | "notifications";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -40,29 +44,70 @@ const sections: { key: Section; label: string }[] = [
   { key: "logcat", label: "Logcat" },
   { key: "settings", label: "Settings" },
   { key: "backup", label: "Backup" },
+  { key: "notifications", label: "Notifications" },
 ];
 
 function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [packageCount, setPackageCount] = useState<number | null>(null);
+  const [highContrast, setHighContrast] = useState(
+    () => settingsStore.get().highContrast,
+  );
+  const { announce } = useAnnouncer();
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      e.target instanceof HTMLSelectElement
-    ) {
-      return;
-    }
-
-    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-      const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= sections.length) {
-        e.preventDefault();
-        setActiveSection(sections[num - 1].key);
-      }
-    }
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = settingsStore.get().highContrast;
+      setHighContrast(current);
+    }, 500);
+    return () => clearInterval(interval);
   }, []);
+
+  const handleTabChange = useCallback(
+    (section: Section) => {
+      setActiveSection(section);
+      const label = sections.find((s) => s.key === section)?.label || section;
+      announce(`Switched to ${label}`);
+    },
+    [announce],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= sections.length) {
+          e.preventDefault();
+          handleTabChange(sections[num - 1].key);
+        }
+      }
+
+      if (e.key === "ArrowRight" && e.altKey) {
+        e.preventDefault();
+        const idx = sections.findIndex((s) => s.key === activeSection);
+        if (idx < sections.length - 1) {
+          handleTabChange(sections[idx + 1].key);
+        }
+      }
+
+      if (e.key === "ArrowLeft" && e.altKey) {
+        e.preventDefault();
+        const idx = sections.findIndex((s) => s.key === activeSection);
+        if (idx > 0) {
+          handleTabChange(sections[idx - 1].key);
+        }
+      }
+    },
+    [activeSection, handleTabChange],
+  );
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -70,7 +115,9 @@ function App() {
   }, [handleKeyDown]);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
+    <div
+      className={`flex flex-col h-screen bg-gray-950 text-gray-100 ${highContrast ? "high-contrast" : ""}`}
+    >
       <TopBar />
 
       <nav className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex gap-2 flex-wrap">
@@ -78,7 +125,10 @@ function App() {
           <button
             key={s.key}
             type="button"
-            onClick={() => setActiveSection(s.key)}
+            onClick={() => handleTabChange(s.key)}
+            role="tab"
+            aria-selected={activeSection === s.key}
+            tabIndex={activeSection === s.key ? 0 : -1}
             title={`${s.label} (Alt+${i + 1})`}
             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               activeSection === s.key
@@ -124,6 +174,7 @@ function App() {
         {activeSection === "logcat" && <LogcatViewer />}
         {activeSection === "settings" && <Settings />}
         {activeSection === "backup" && <BackupManager />}
+        {activeSection === "notifications" && <NotificationManager />}
       </main>
 
       <CommandBar />

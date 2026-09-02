@@ -247,6 +247,37 @@ const Settings: React.FC = () => {
               </select>
             </div>
           </div>
+
+          {/* High Contrast Toggle */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-800">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">High Contrast Mode</span>
+              <span className="text-[11px] text-gray-500">
+                Increases contrast for better visibility
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setSettings({
+                  ...settings,
+                  highContrast: !settings.highContrast,
+                })
+              }
+              role="switch"
+              aria-checked={settings.highContrast}
+              aria-label="Toggle high contrast mode"
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                settings.highContrast ? "bg-blue-600" : "bg-gray-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                  settings.highContrast ? "translate-x-4" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Backup & Restore */}

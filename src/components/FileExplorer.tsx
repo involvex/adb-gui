@@ -320,6 +320,7 @@ const FileExplorer: React.FC = () => {
               disabled={loading}
               className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm border border-gray-700 disabled:opacity-50"
               title={`Pull all ${files.length} file(s)`}
+              aria-label={`Pull all ${files.length} files`}
             >
               Pull All ({files.length})
             </button>
@@ -498,6 +499,7 @@ const FileExplorer: React.FC = () => {
                           }}
                           className="bg-gray-800 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-700 transition-colors text-xs font-medium border border-gray-700"
                           title="Preview file"
+                          aria-label="Preview file"
                         >
                           Preview
                         </button>

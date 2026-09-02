@@ -114,6 +114,7 @@ const CommandBar: React.FC = () => {
           disabled={loading || !cmd.trim()}
           className="bg-gray-700 text-gray-300 px-3 py-1.5 rounded hover:bg-gray-600 transition-colors text-sm disabled:opacity-50 shrink-0"
           title="Run command (Enter)"
+          aria-label="Run command"
         >
           {loading ? "..." : "Run"}
         </button>
