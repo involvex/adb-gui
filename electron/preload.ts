@@ -81,11 +81,11 @@ contextBridge.exposeInMainWorld("adb", {
   },
 
   installApk(deviceId?: string): Promise<{
-    stdout: string;
-    stderr: string;
-    exitCode: number;
+    success?: boolean;
+    results?: { file: string; exitCode: number; stderr: string }[];
+    installedFiles?: string[];
+    failedFiles?: { file: string; error: string }[];
     error?: string;
-    apkPath?: string;
   }> {
     return ipcRenderer.invoke("adb:install-apk", { deviceId });
   },

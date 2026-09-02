@@ -323,17 +323,34 @@ ipcMain.handle(
   async (_event, { deviceId }: { deviceId?: string }) => {
     if (!win) return { error: "No window", exitCode: 1 };
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: "Select APK to install",
+      title: "Select APK(s) to install",
       filters: [{ name: "APK files", extensions: ["apk"] }],
-      properties: ["openFile"],
+      properties: ["openFile", "multiSelections"],
     });
     if (canceled || filePaths.length === 0) {
       return { error: "cancelled", exitCode: 1 };
     }
-    const apkPath = filePaths[0];
     const svc = deviceId ? new AdbService({ deviceId }) : adb;
-    const result = await svc.execute(`install -r "${apkPath}"`, 120000);
-    return { ...result, apkPath };
+    const results: { file: string; result: AdbResult }[] = [];
+    for (const apkPath of filePaths) {
+      const result = await svc.execute(`install -r "${apkPath}"`, 120000);
+      results.push({ file: apkPath, result });
+    }
+    const allSuccess = results.every((r) => r.result.exitCode === 0);
+    return {
+      success: allSuccess,
+      results: results.map((r) => ({
+        file: r.file,
+        exitCode: r.result.exitCode,
+        stderr: r.result.stderr,
+      })),
+      installedFiles: results
+        .filter((r) => r.result.exitCode === 0)
+        .map((r) => r.file),
+      failedFiles: results
+        .filter((r) => r.result.exitCode !== 0)
+        .map((r) => ({ file: r.file, error: r.result.stderr })),
+    };
   },
 );
 

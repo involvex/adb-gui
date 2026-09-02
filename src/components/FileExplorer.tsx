@@ -184,6 +184,46 @@ const FileExplorer: React.FC = () => {
     await adbService.openFolder(pulledFolderPath);
   };
 
+  const handlePullAll = async () => {
+    const fileEntries = entries.filter((e) => !e.isDirectory);
+    if (fileEntries.length === 0) return;
+    if (
+      !confirm(
+        `Pull ${fileEntries.length} file(s) from ${currentPath}?\n\nEach file will prompt for a save location.`,
+      )
+    ) {
+      return;
+    }
+    setStatusMsg(null);
+    setError(null);
+    setPulledFolderPath(null);
+    let successCount = 0;
+    let failCount = 0;
+    for (const entry of fileEntries) {
+      try {
+        const result = await adbService.pullFile(
+          buildPath(currentPath, entry.name),
+        );
+        if (result.exitCode === 0 && result.error !== "cancelled") {
+          successCount++;
+        } else if (result.error !== "cancelled") {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+    if (failCount === 0) {
+      setStatusMsg(`Pulled ${successCount} file(s)`);
+    } else {
+      setError(`Pulled ${successCount}, failed ${failCount} file(s)`);
+    }
+    setTimeout(() => {
+      setStatusMsg(null);
+      setError(null);
+    }, 5000);
+  };
+
   const dirs = entries.filter((e) => e.isDirectory && !e.isSymlink);
   const files = entries.filter((e) => !e.isDirectory);
 
@@ -266,14 +306,27 @@ const FileExplorer: React.FC = () => {
             </span>
           )}
         </h2>
-        <button
-          type="button"
-          onClick={handlePush}
-          disabled={loading}
-          className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800 disabled:opacity-50"
-        >
-          Push Files
-        </button>
+        <div className="flex items-center gap-2">
+          {files.length > 0 && (
+            <button
+              type="button"
+              onClick={handlePullAll}
+              disabled={loading}
+              className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm border border-gray-700 disabled:opacity-50"
+              title={`Pull all ${files.length} file(s)`}
+            >
+              Pull All ({files.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handlePush}
+            disabled={loading}
+            className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800 disabled:opacity-50"
+          >
+            Push Files
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mb-3">

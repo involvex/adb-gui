@@ -52,6 +52,27 @@ const TopBar: React.FC = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key === "r" &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
+        if (
+          !(e.target instanceof HTMLInputElement) &&
+          !(e.target instanceof HTMLTextAreaElement)
+        ) {
+          e.preventDefault();
+          loadDevices();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loadDevices]);
+
   const handleSelect = (serial: string) => {
     if (activeId === serial) {
       setDeviceId(null);
@@ -73,15 +94,22 @@ const TopBar: React.FC = () => {
     try {
       const result = await adbService.installApk();
       if (result.error === "cancelled") return;
-      if (result.exitCode === 0) {
-        const name = result.apkPath?.split(/[\\/]/).pop() || "APK";
-        setInstallMsg(`Installed ${name}`);
-        setTimeout(() => setInstallMsg(null), 5000);
-      } else {
-        setError(
-          `Install failed: ${result.stderr || result.error || "unknown error"}`,
-        );
+      if (result.installedFiles && result.installedFiles.length > 0) {
+        const names = result.installedFiles
+          .map((f) => f.split(/[\\/]/).pop())
+          .join(", ");
+        setInstallMsg(`Installed ${names}`);
       }
+      if (result.failedFiles && result.failedFiles.length > 0) {
+        const failNames = result.failedFiles
+          .map((f) => f.file.split(/[\\/]/).pop())
+          .join(", ");
+        setError(`Failed: ${failNames}`);
+      }
+      setTimeout(() => {
+        setInstallMsg(null);
+        setError(null);
+      }, 5000);
     } catch {
       setError("Failed to install APK");
     } finally {

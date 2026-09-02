@@ -4,6 +4,9 @@ import { adbService } from "../adbService";
 interface ProcessInfo {
   user: string;
   pid: number;
+  cpu: number;
+  mem: number;
+  rss: string;
   name: string;
 }
 
@@ -14,7 +17,7 @@ const ProcessManager: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [sortBy, setSortBy] = useState<"pid" | "name">("pid");
+  const [sortBy, setSortBy] = useState<"pid" | "name" | "cpu" | "mem">("pid");
 
   const loadProcesses = useCallback(async () => {
     setLoading(true);
@@ -66,6 +69,8 @@ const ProcessManager: React.FC = () => {
     )
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "cpu") return b.cpu - a.cpu;
+      if (sortBy === "mem") return b.mem - a.mem;
       return a.pid - b.pid;
     });
 
@@ -88,11 +93,15 @@ const ProcessManager: React.FC = () => {
         <div className="flex items-center gap-2">
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "pid" | "name")}
+            onChange={(e) =>
+              setSortBy(e.target.value as "pid" | "name" | "cpu" | "mem")
+            }
             className="bg-gray-800 text-gray-300 border border-gray-700 rounded px-2 py-1 text-xs outline-none"
           >
             <option value="pid">Sort by PID</option>
             <option value="name">Sort by Name</option>
+            <option value="cpu">Sort by CPU</option>
+            <option value="mem">Sort by Memory</option>
           </select>
           <button
             type="button"
@@ -156,6 +165,15 @@ const ProcessManager: React.FC = () => {
                   USER
                 </th>
                 <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  CPU%
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  MEM%
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
+                  RSS
+                </th>
+                <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
                   NAME
                 </th>
                 <th className="bg-gray-800 text-gray-200 px-3 py-2 text-xs font-semibold uppercase tracking-wider border-b border-gray-700">
@@ -174,6 +192,35 @@ const ProcessManager: React.FC = () => {
                   </td>
                   <td className="px-3 py-2 text-sm text-gray-300">
                     {proc.user}
+                  </td>
+                  <td className="px-3 py-2 text-sm font-mono">
+                    <span
+                      className={
+                        proc.cpu >= 50
+                          ? "text-red-400"
+                          : proc.cpu >= 10
+                            ? "text-yellow-400"
+                            : "text-gray-400"
+                      }
+                    >
+                      {proc.cpu.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-sm font-mono">
+                    <span
+                      className={
+                        proc.mem >= 50
+                          ? "text-red-400"
+                          : proc.mem >= 10
+                            ? "text-yellow-400"
+                            : "text-gray-400"
+                      }
+                    >
+                      {proc.mem.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-400 font-mono">
+                    {proc.rss}
                   </td>
                   <td className="px-3 py-2 text-sm text-gray-200 truncate max-w-[200px]">
                     {proc.name}

@@ -135,18 +135,48 @@ export class AdbService {
   }
 
   async listProcesses(): Promise<
-    { user: string; pid: number; name: string }[]
+    {
+      user: string;
+      pid: number;
+      cpu: number;
+      mem: number;
+      rss: string;
+      name: string;
+    }[]
   > {
-    const result = await this.execute("shell ps -A -o USER,PID,NAME");
-    const processes: { user: string; pid: number; name: string }[] = [];
+    const result = await this.execute(
+      "shell ps -A -o USER,PID,%CPU,%MEM,RSS,NAME",
+    );
+    const processes: {
+      user: string;
+      pid: number;
+      cpu: number;
+      mem: number;
+      rss: string;
+      name: string;
+    }[] = [];
     const lines = result.stdout.trim().split("\n");
     for (const line of lines) {
       const parts = line.split(/\s+/);
-      if (parts.length >= 3 && parts[0] !== "USER") {
+      if (parts.length >= 6 && parts[0] !== "USER") {
+        const rssKb = parseInt(parts[4], 10);
+        let rssStr = parts[4] || "0";
+        if (!isNaN(rssKb)) {
+          if (rssKb >= 1048576) {
+            rssStr = (rssKb / 1048576).toFixed(1) + " GB";
+          } else if (rssKb >= 1024) {
+            rssStr = (rssKb / 1024).toFixed(1) + " MB";
+          } else {
+            rssStr = rssKb + " KB";
+          }
+        }
         processes.push({
           user: parts[0],
           pid: parseInt(parts[1], 10),
-          name: parts.slice(2).join(" "),
+          cpu: parseFloat(parts[2]) || 0,
+          mem: parseFloat(parts[3]) || 0,
+          rss: rssStr,
+          name: parts.slice(5).join(" "),
         });
       }
     }

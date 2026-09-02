@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import TopBar from "./components/TopBar";
 import ProcessManager from "./components/ProcessManager";
 import PermissionManager from "./components/PermissionManager";
@@ -46,16 +46,40 @@ function App() {
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [packageCount, setPackageCount] = useState<number | null>(null);
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      const num = parseInt(e.key, 10);
+      if (num >= 1 && num <= sections.length) {
+        e.preventDefault();
+        setActiveSection(sections[num - 1].key);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100">
       <TopBar />
 
       <nav className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex gap-2 flex-wrap">
-        {sections.map((s) => (
+        {sections.map((s, i) => (
           <button
             key={s.key}
             type="button"
             onClick={() => setActiveSection(s.key)}
+            title={`${s.label} (Alt+${i + 1})`}
             className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
               activeSection === s.key
                 ? "bg-gray-700 text-gray-100"
