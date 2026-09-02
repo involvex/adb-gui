@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { settingsStore, type AppSettings } from "../appSettings";
-import { quickCommandsStore } from "../electronStore";
 import { adbService } from "../adbService";
+import { backupStore, type BackupData } from "../backupStore";
 
 const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(settingsStore.get());
@@ -11,6 +11,7 @@ const Settings: React.FC = () => {
     path: string;
   } | null>(null);
   const [checkingAdb, setCheckingAdb] = useState(false);
+  const [backupPreview, setBackupPreview] = useState<BackupData | null>(null);
 
   useEffect(() => {
     checkAdb();
@@ -34,42 +35,62 @@ const Settings: React.FC = () => {
     setTimeout(() => setSavedStatus(null), 2500);
   };
 
-  const handleExportCommands = () => {
-    const commands = quickCommandsStore.getAll();
-    const dataStr =
-      "data:text/json;charset=utf-8," +
-      encodeURIComponent(JSON.stringify(commands, null, 2));
-    const downloadAnchor = document.createElement("a");
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute(
-      "download",
-      `adb_gui_quick_commands_${Date.now()}.json`,
-    );
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const handleExportAll = () => {
+    const data = backupStore.exportAll();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `adb_gui_backup_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setSavedStatus("Backup exported successfully!");
+    setTimeout(() => setSavedStatus(null), 2500);
   };
 
-  const handleImportCommands = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileReader = new FileReader();
-    if (e.target.files && e.target.files[0]) {
-      fileReader.readAsText(e.target.files[0], "UTF-8");
-      fileReader.onload = (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string);
-          if (Array.isArray(parsed)) {
-            localStorage.setItem(
-              "adb-gui-quick-commands",
-              JSON.stringify(parsed),
-            );
-            setSavedStatus("Quick commands imported successfully!");
-            setTimeout(() => setSavedStatus(null), 2500);
-          }
-        } catch {
-          alert("Invalid JSON file for Quick Commands.");
-        }
-      };
+  const handleImportRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = backupStore.importFromJson(event.target?.result as string);
+      if (result.success && result.data) {
+        setBackupPreview(result.data);
+      } else {
+        alert(result.error || "Failed to import backup");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleRestoreAll = () => {
+    if (!backupPreview) return;
+    if (
+      !confirm(
+        "This will overwrite all current data. Quick Commands, Settings, and Command History will be replaced. Continue?",
+      )
+    ) {
+      return;
     }
+    backupStore.restoreAll(backupPreview);
+    setSettings(settingsStore.get());
+    setBackupPreview(null);
+    setSavedStatus("All data restored successfully!");
+    setTimeout(() => setSavedStatus(null), 2500);
+  };
+
+  const handleRestoreSelective = () => {
+    if (!backupPreview) return;
+    if (!confirm("This will overwrite your Quick Commands. Continue?")) {
+      return;
+    }
+    backupStore.restoreQuickCommands(backupPreview.quickCommands);
+    setBackupPreview(null);
+    setSavedStatus("Quick Commands restored successfully!");
+    setTimeout(() => setSavedStatus(null), 2500);
   };
 
   return (
@@ -167,29 +188,80 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Data & Backup */}
+        {/* Backup & Restore */}
         <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 flex flex-col gap-4">
           <h3 className="text-sm font-medium text-gray-200">
-            Quick Commands Data Management
+            Backup & Restore
           </h3>
+          <p className="text-xs text-gray-400">
+            Export all app data (Quick Commands, Settings, Command History) to a
+            JSON file, or restore from a previous backup.
+          </p>
+
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleExportCommands}
+              onClick={handleExportAll}
               className="bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 border border-blue-800 px-4 py-2 rounded text-xs transition-colors font-medium"
             >
-              Export Quick Commands (JSON)
+              Export All Data (JSON)
             </button>
             <label className="bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded text-xs transition-colors font-medium cursor-pointer">
-              Import Quick Commands
+              Import & Restore
               <input
                 type="file"
                 accept=".json"
-                onChange={handleImportCommands}
+                onChange={handleImportRestore}
                 className="hidden"
               />
             </label>
           </div>
+
+          {backupPreview && (
+            <div className="bg-gray-900 border border-gray-700 rounded p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-200">
+                  Backup Preview
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBackupPreview(null)}
+                  className="text-gray-500 hover:text-gray-300 text-xs"
+                >
+                  Dismiss
+                </button>
+              </div>
+              <div className="text-[11px] text-gray-400 space-y-0.5">
+                <p>Version: {backupPreview.version}</p>
+                <p>
+                  Created: {new Date(backupPreview.timestamp).toLocaleString()}
+                </p>
+                <p>
+                  Quick Commands: {backupPreview.quickCommands.length} command
+                  {backupPreview.quickCommands.length !== 1 ? "s" : ""}
+                </p>
+                <p>
+                  Command History: {backupPreview.commandHistory.length} entries
+                </p>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={handleRestoreAll}
+                  className="bg-green-950/40 hover:bg-green-900/60 text-green-300 border border-green-800 px-3 py-1.5 rounded text-xs transition-colors font-medium"
+                >
+                  Restore All
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreSelective}
+                  className="bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-300 border border-yellow-800 px-3 py-1.5 rounded text-xs transition-colors font-medium"
+                >
+                  Restore Quick Commands Only
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
