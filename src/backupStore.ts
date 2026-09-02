@@ -1,5 +1,12 @@
-import { quickCommandsStore, type QuickCommand } from "./electronStore";
+import {
+  quickCommandsStore,
+  STORAGE_KEY,
+  type QuickCommand,
+} from "./electronStore";
 import { settingsStore, type AppSettings } from "./appSettings";
+import { loadCommandHistory, saveCommandHistory } from "./commandHistoryStore";
+
+export const CURRENT_BACKUP_VERSION = 1;
 
 export interface BackupData {
   version: 1;
@@ -10,36 +17,42 @@ export interface BackupData {
   commandHistory: string[];
 }
 
-const COMMAND_HISTORY_KEY = "adb-gui-command-history";
-const MAX_HISTORY = 50;
-
-function loadCommandHistory(): string[] {
-  try {
-    const raw = localStorage.getItem(COMMAND_HISTORY_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as string[];
-      if (Array.isArray(parsed)) {
-        return parsed.slice(0, MAX_HISTORY);
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return [];
+function validateQuickCommands(items: unknown): items is QuickCommand[] {
+  return (
+    Array.isArray(items) &&
+    items.every(
+      (item): item is QuickCommand =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).id === "string" &&
+        typeof (item as Record<string, unknown>).title === "string" &&
+        typeof (item as Record<string, unknown>).command === "string" &&
+        typeof (item as Record<string, unknown>).description === "string" &&
+        typeof (item as Record<string, unknown>).icon === "string",
+    )
+  );
 }
 
-function saveCommandHistory(history: string[]): void {
-  try {
-    localStorage.setItem(COMMAND_HISTORY_KEY, JSON.stringify(history));
-  } catch {
-    // ignore
-  }
+function validateAppSettings(obj: unknown): obj is AppSettings {
+  if (typeof obj !== "object" || obj === null) return false;
+  const s = obj as Record<string, unknown>;
+  return (
+    typeof s.adbPath === "string" &&
+    typeof s.defaultBuffer === "string" &&
+    typeof s.defaultPriority === "string" &&
+    typeof s.autoScrollLogcat === "boolean" &&
+    (s.theme === "dark" || s.theme === "light")
+  );
+}
+
+function validateCommandHistory(items: unknown): items is string[] {
+  return Array.isArray(items) && items.every((h) => typeof h === "string");
 }
 
 export const backupStore = {
   exportAll(): BackupData {
     return {
-      version: 1,
+      version: CURRENT_BACKUP_VERSION,
       timestamp: new Date().toISOString(),
       appVersion: "0.0.0",
       quickCommands: quickCommandsStore.getAll(),
@@ -58,25 +71,33 @@ export const backupStore = {
       if (!parsed || typeof parsed !== "object") {
         return { success: false, error: "Invalid backup file format" };
       }
-      if (parsed.version !== 1) {
+      if (typeof parsed.version !== "number") {
+        return { success: false, error: "Missing or invalid version field" };
+      }
+      if (parsed.version > CURRENT_BACKUP_VERSION) {
         return {
           success: false,
-          error: `Unsupported backup version: ${parsed.version}`,
+          error: `Backup is from a newer version (v${parsed.version}). Please update the app.`,
         };
       }
-      if (!Array.isArray(parsed.quickCommands)) {
+      if (!validateQuickCommands(parsed.quickCommands)) {
         return {
           success: false,
-          error: "Missing or invalid quickCommands data",
+          error:
+            "Invalid quickCommands data — each command must have id, title, command, description, and icon strings",
         };
       }
-      if (!parsed.appSettings || typeof parsed.appSettings !== "object") {
-        return { success: false, error: "Missing or invalid appSettings data" };
-      }
-      if (!Array.isArray(parsed.commandHistory)) {
+      if (!validateAppSettings(parsed.appSettings)) {
         return {
           success: false,
-          error: "Missing or invalid commandHistory data",
+          error:
+            "Invalid appSettings data — must include adbPath, defaultBuffer, defaultPriority, autoScrollLogcat, and theme",
+        };
+      }
+      if (!validateCommandHistory(parsed.commandHistory)) {
+        return {
+          success: false,
+          error: "Invalid commandHistory data — must be an array of strings",
         };
       }
       return { success: true, data: parsed as BackupData };
@@ -85,25 +106,67 @@ export const backupStore = {
     }
   },
 
-  restoreAll(data: BackupData): void {
-    localStorage.setItem(
-      "adb-gui-quick-commands",
-      JSON.stringify(data.quickCommands),
-    );
-    settingsStore.save(data.appSettings);
-    saveCommandHistory(data.commandHistory);
+  restoreAll(data: BackupData): { success: boolean; error?: string } {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.quickCommands));
+      settingsStore.save(data.appSettings);
+      saveCommandHistory(data.commandHistory);
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          e instanceof Error ? e.message : "Failed to write to localStorage",
+      };
+    }
   },
 
-  restoreQuickCommands(commands: QuickCommand[]): void {
-    localStorage.setItem("adb-gui-quick-commands", JSON.stringify(commands));
+  restoreQuickCommands(commands: QuickCommand[]): {
+    success: boolean;
+    error?: string;
+  } {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(commands));
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          e instanceof Error ? e.message : "Failed to write to localStorage",
+      };
+    }
   },
 
-  restoreSettings(settings: AppSettings): void {
-    settingsStore.save(settings);
+  restoreSettings(settings: AppSettings): {
+    success: boolean;
+    error?: string;
+  } {
+    try {
+      settingsStore.save(settings);
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          e instanceof Error ? e.message : "Failed to write to localStorage",
+      };
+    }
   },
 
-  restoreCommandHistory(history: string[]): void {
-    saveCommandHistory(history);
+  restoreCommandHistory(history: string[]): {
+    success: boolean;
+    error?: string;
+  } {
+    try {
+      saveCommandHistory(history);
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          e instanceof Error ? e.message : "Failed to write to localStorage",
+      };
+    }
   },
 
   getCommandHistory(): string[] {

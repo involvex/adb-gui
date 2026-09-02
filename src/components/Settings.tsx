@@ -49,13 +49,26 @@ const Settings: React.FC = () => {
     setTimeout(() => setSavedStatus(null), 2500);
   };
 
+  const MAX_IMPORT_SIZE = 10 * 1024 * 1024; // 10MB
+
   const handleImportRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_IMPORT_SIZE) {
+      alert("Backup file is too large (max 10MB)");
+      e.target.value = "";
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = backupStore.importFromJson(event.target?.result as string);
+      const content = event.target?.result;
+      if (typeof content !== "string") {
+        alert("Failed to read file");
+        return;
+      }
+      const result = backupStore.importFromJson(content);
       if (result.success && result.data) {
         setBackupPreview(result.data);
       } else {
@@ -75,11 +88,15 @@ const Settings: React.FC = () => {
     ) {
       return;
     }
-    backupStore.restoreAll(backupPreview);
-    setSettings(settingsStore.get());
-    setBackupPreview(null);
-    setSavedStatus("All data restored successfully!");
-    setTimeout(() => setSavedStatus(null), 2500);
+    const result = backupStore.restoreAll(backupPreview);
+    if (result.success) {
+      setSettings(settingsStore.get());
+      setBackupPreview(null);
+      setSavedStatus("All data restored successfully!");
+      setTimeout(() => setSavedStatus(null), 2500);
+    } else {
+      alert(`Restore failed: ${result.error}`);
+    }
   };
 
   const handleRestoreSelective = () => {
@@ -87,10 +104,49 @@ const Settings: React.FC = () => {
     if (!confirm("This will overwrite your Quick Commands. Continue?")) {
       return;
     }
-    backupStore.restoreQuickCommands(backupPreview.quickCommands);
-    setBackupPreview(null);
-    setSavedStatus("Quick Commands restored successfully!");
-    setTimeout(() => setSavedStatus(null), 2500);
+    const result = backupStore.restoreQuickCommands(
+      backupPreview.quickCommands,
+    );
+    if (result.success) {
+      setBackupPreview(null);
+      setSavedStatus("Quick Commands restored successfully!");
+      setTimeout(() => setSavedStatus(null), 2500);
+    } else {
+      alert(`Restore failed: ${result.error}`);
+    }
+  };
+
+  const handleRestoreSettings = () => {
+    if (!backupPreview) return;
+    if (!confirm("This will overwrite your Settings. Continue?")) {
+      return;
+    }
+    const result = backupStore.restoreSettings(backupPreview.appSettings);
+    if (result.success) {
+      setSettings(settingsStore.get());
+      setBackupPreview(null);
+      setSavedStatus("Settings restored successfully!");
+      setTimeout(() => setSavedStatus(null), 2500);
+    } else {
+      alert(`Restore failed: ${result.error}`);
+    }
+  };
+
+  const handleRestoreHistory = () => {
+    if (!backupPreview) return;
+    if (!confirm("This will overwrite your Command History. Continue?")) {
+      return;
+    }
+    const result = backupStore.restoreCommandHistory(
+      backupPreview.commandHistory,
+    );
+    if (result.success) {
+      setBackupPreview(null);
+      setSavedStatus("Command History restored successfully!");
+      setTimeout(() => setSavedStatus(null), 2500);
+    } else {
+      alert(`Restore failed: ${result.error}`);
+    }
   };
 
   return (
@@ -257,7 +313,21 @@ const Settings: React.FC = () => {
                   onClick={handleRestoreSelective}
                   className="bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-300 border border-yellow-800 px-3 py-1.5 rounded text-xs transition-colors font-medium"
                 >
-                  Restore Quick Commands Only
+                  Quick Commands Only
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreSettings}
+                  className="bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-300 border border-yellow-800 px-3 py-1.5 rounded text-xs transition-colors font-medium"
+                >
+                  Settings Only
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestoreHistory}
+                  className="bg-yellow-950/40 hover:bg-yellow-900/60 text-yellow-300 border border-yellow-800 px-3 py-1.5 rounded text-xs transition-colors font-medium"
+                >
+                  History Only
                 </button>
               </div>
             </div>

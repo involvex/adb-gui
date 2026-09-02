@@ -72,7 +72,7 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
   },
 ];
 
-const STORAGE_KEY = "adb-gui-quick-commands";
+export const STORAGE_KEY = "adb-gui-quick-commands";
 
 function loadCommands(): QuickCommand[] {
   try {
