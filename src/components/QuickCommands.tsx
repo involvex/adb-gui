@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { adbService } from "../adbService";
 import { quickCommandsStore, type QuickCommand } from "../electronStore";
+import { settingsStore } from "../appSettings";
 
 const QuickCommands: React.FC = () => {
   const [commands, setCommands] = useState<QuickCommand[]>([]);
@@ -13,6 +14,13 @@ const QuickCommands: React.FC = () => {
   const [formDescription, setFormDescription] = useState("");
   const [formIcon, setFormIcon] = useState("⚡");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [showPrompt, setShowPrompt] = useState(false);
+  const [promptCmd, setPromptCmd] = useState<QuickCommand | null>(null);
+  const [promptPlaceholders, setPromptPlaceholders] = useState<
+    { name: string; hint: string; value: string }[]
+  >([]);
+  const promptInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const loadCommands = useCallback(() => {
     setLoading(true);
@@ -35,27 +43,87 @@ const QuickCommands: React.FC = () => {
     return [...new Set(matches.map((m) => m.slice(1, -1)))];
   };
 
-  const promptForPlaceholders = async (cmd: string): Promise<string | null> => {
-    const placeholders = extractPlaceholders(cmd);
-    if (placeholders.length === 0) return cmd;
-
-    let result = cmd;
-    for (const ph of placeholders) {
-      const value = prompt(`Enter value for <${ph}>:`);
-      if (value === null) return null;
-      result = result.replace(new RegExp(`<${ph}>`, "g"), value);
+  const openPromptModal = (cmd: QuickCommand) => {
+    const placeholders = extractPlaceholders(cmd.command);
+    if (placeholders.length === 0) {
+      executeCommand(cmd.command);
+      return;
     }
-    return result;
+
+    const settings = settingsStore.get();
+    const labels = cmd.placeholderLabels || [];
+
+    const fields = placeholders.map((ph) => {
+      const label = labels.find((l) => l.name === ph);
+      const isLocalPath =
+        ph.toLowerCase().includes("local") || ph.toLowerCase().includes("path");
+      const defaultValue =
+        isLocalPath && settings.defaultLocalDir ? settings.defaultLocalDir : "";
+
+      return {
+        name: ph,
+        hint: label?.hint || `Enter ${ph}`,
+        value: defaultValue,
+      };
+    });
+
+    setPromptCmd(cmd);
+    setPromptPlaceholders(fields);
+    setShowPrompt(true);
+
+    setTimeout(() => {
+      promptInputRefs.current[0]?.focus();
+    }, 50);
   };
 
-  const handleExecute = async (cmd: QuickCommand) => {
-    setError(null);
+  const executeCommand = async (finalCmd: string) => {
     try {
-      const finalCmd = await promptForPlaceholders(cmd.command);
-      if (finalCmd === null) return;
       await adbService.execute(finalCmd);
     } catch {
-      setError(`Failed to execute: ${cmd.title}`);
+      setError(`Failed to execute command`);
+    }
+  };
+
+  const handlePromptSubmit = async () => {
+    if (!promptCmd) return;
+
+    const hasEmpty = promptPlaceholders.some((p) => !p.value.trim());
+    if (hasEmpty) {
+      setError("All fields are required");
+      return;
+    }
+
+    let finalCmd = promptCmd.command;
+    for (const ph of promptPlaceholders) {
+      finalCmd = finalCmd.replace(
+        new RegExp(`<${ph.name}>`, "g"),
+        ph.value.trim(),
+      );
+    }
+
+    setShowPrompt(false);
+    setPromptCmd(null);
+    setError(null);
+    await executeCommand(finalCmd);
+  };
+
+  const handlePromptKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (idx < promptPlaceholders.length - 1) {
+        promptInputRefs.current[idx + 1]?.focus();
+      } else {
+        handlePromptSubmit();
+      }
+    }
+    if (e.key === "Escape") {
+      setShowPrompt(false);
+      setPromptCmd(null);
+    }
+    if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault();
+      const next = (idx + 1) % promptPlaceholders.length;
+      promptInputRefs.current[next]?.focus();
     }
   };
 
@@ -233,7 +301,7 @@ const QuickCommands: React.FC = () => {
             >
               <button
                 type="button"
-                onClick={() => handleExecute(cmd)}
+                onClick={() => openPromptModal(cmd)}
                 className="text-gray-200 hover:text-gray-100 text-sm font-medium"
                 title={cmd.description}
               >
@@ -259,9 +327,80 @@ const QuickCommands: React.FC = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Prompt Modal */}
+      {showPrompt && promptCmd && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Configure ${promptCmd.title}`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">{promptCmd.icon}</span>
+              <h3 className="text-lg font-semibold text-gray-100">
+                {promptCmd.title}
+              </h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              {promptCmd.description}
+            </p>
+
+            <div className="space-y-3">
+              {promptPlaceholders.map((ph, idx) => (
+                <div key={ph.name}>
+                  <label
+                    htmlFor={`prompt-${ph.name}`}
+                    className="block text-xs text-gray-400 mb-1"
+                  >
+                    {ph.name}
+                  </label>
+                  <input
+                    id={`prompt-${ph.name}`}
+                    ref={(el) => {
+                      promptInputRefs.current[idx] = el;
+                    }}
+                    type="text"
+                    value={ph.value}
+                    onChange={(e) => {
+                      const updated = [...promptPlaceholders];
+                      updated[idx] = { ...updated[idx], value: e.target.value };
+                      setPromptPlaceholders(updated);
+                    }}
+                    onKeyDown={(e) => handlePromptKeyDown(e, idx)}
+                    placeholder={ph.hint}
+                    className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm font-mono outline-none focus:border-gray-500 transition-colors"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPrompt(false);
+                  setPromptCmd(null);
+                }}
+                className="bg-gray-700 text-gray-300 px-4 py-2 rounded hover:bg-gray-600 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePromptSubmit}
+                className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded transition-colors text-sm font-medium"
+              >
+                Execute
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold text-gray-100 mb-4">
               {editingCmd ? "Edit Command" : "Add Command"}

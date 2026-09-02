@@ -248,6 +248,28 @@ const Settings: React.FC = () => {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="default-local-dir"
+              className="text-xs text-gray-400"
+            >
+              Default Local Directory for File Transfers
+            </label>
+            <input
+              id="default-local-dir"
+              type="text"
+              value={settings.defaultLocalDir}
+              onChange={(e) =>
+                setSettings({ ...settings, defaultLocalDir: e.target.value })
+              }
+              className="bg-gray-900 text-gray-200 border border-gray-700 rounded px-3 py-1.5 text-xs font-mono outline-none focus:border-gray-500"
+              placeholder="e.g., D:\backups"
+            />
+            <span className="text-[11px] text-gray-500">
+              Pre-fills local path in Pull/Push quick commands
+            </span>
+          </div>
+
           {/* High Contrast Toggle */}
           <div className="flex items-center justify-between pt-2 border-t border-gray-800">
             <div className="flex flex-col">

@@ -4,6 +4,7 @@ export interface QuickCommand {
   command: string;
   description: string;
   icon: string;
+  placeholderLabels?: { name: string; hint?: string }[];
 }
 
 const DEFAULT_COMMANDS: QuickCommand[] = [
@@ -27,6 +28,7 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "pm grant <package> --user 0 --all-permissions",
     description: "Grant all permissions to a package",
     icon: "✅",
+    placeholderLabels: [{ name: "package", hint: "e.g., com.example.app" }],
   },
   {
     id: "force-stop",
@@ -34,6 +36,7 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "shell am force-stop <package>",
     description: "Force stop an app",
     icon: "⛔",
+    placeholderLabels: [{ name: "package", hint: "e.g., com.example.app" }],
   },
   {
     id: "pull-file",
@@ -41,6 +44,10 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "pull <remote-path> <local-path>",
     description: "Pull file from device to local",
     icon: "📥",
+    placeholderLabels: [
+      { name: "remote-path", hint: "e.g., /sdcard/Download/file.zip" },
+      { name: "local-path", hint: "e.g., D:\\backups\\file.zip" },
+    ],
   },
   {
     id: "push-file",
@@ -48,6 +55,10 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "push <local-path> <remote-path>",
     description: "Push file from local to device",
     icon: "📤",
+    placeholderLabels: [
+      { name: "local-path", hint: "e.g., D:\\backups\\file.zip" },
+      { name: "remote-path", hint: "e.g., /sdcard/Download/file.zip" },
+    ],
   },
   {
     id: "list-files",
@@ -55,6 +66,9 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "shell ls -l <remote-path>",
     description: "List files in a directory on device",
     icon: "📁",
+    placeholderLabels: [
+      { name: "remote-path", hint: "e.g., /sdcard/Download" },
+    ],
   },
   {
     id: "device-info",

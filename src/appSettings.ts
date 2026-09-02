@@ -5,6 +5,7 @@ export interface AppSettings {
   autoScrollLogcat: boolean;
   theme: "dark" | "light";
   highContrast: boolean;
+  defaultLocalDir: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoScrollLogcat: true,
   theme: "dark",
   highContrast: false,
+  defaultLocalDir: "",
 };
 
 const SETTINGS_KEY = "adb-gui-app-settings";
