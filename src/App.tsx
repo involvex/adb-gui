@@ -10,6 +10,7 @@ import DeviceInfo from "./components/DeviceInfo";
 import DeviceActions from "./components/DeviceActions";
 import Settings from "./components/Settings";
 import WifiConnection from "./components/WifiConnection";
+import BackupManager from "./components/BackupManager";
 
 type Section =
   | "dashboard"
@@ -21,7 +22,8 @@ type Section =
   | "files"
   | "quick"
   | "logcat"
-  | "settings";
+  | "settings"
+  | "backup";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -34,6 +36,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "quick", label: "Quick Commands" },
   { key: "logcat", label: "Logcat" },
   { key: "settings", label: "Settings" },
+  { key: "backup", label: "Backup" },
 ];
 
 function App() {
@@ -92,6 +95,7 @@ function App() {
         {activeSection === "quick" && <QuickCommands />}
         {activeSection === "logcat" && <LogcatViewer />}
         {activeSection === "settings" && <Settings />}
+        {activeSection === "backup" && <BackupManager />}
       </main>
 
       <CommandBar />

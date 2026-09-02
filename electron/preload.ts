@@ -128,4 +128,17 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:screenrecord", { timeLimit, deviceId });
   },
+
+  backupApps(
+    packages: string[],
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:backup-apps", { packages, deviceId });
+  },
 });

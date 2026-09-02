@@ -78,6 +78,16 @@ interface AdbWindow {
     error?: string;
     localPath?: string;
   }>;
+  backupApps(
+    packages: string[],
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -314,6 +324,16 @@ async function installApk(): Promise<{
   return adb.installApk(currentDeviceId ?? undefined);
 }
 
+async function backupApps(packages: string[]): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.backupApps(packages, currentDeviceId ?? undefined);
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -342,6 +362,7 @@ export const adbService = {
   screenshot,
   screenrecord,
   installApk,
+  backupApps,
 };
 
 export default adbService;

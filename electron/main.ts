@@ -337,6 +337,31 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "adb:backup-apps",
+  async (
+    _event,
+    { packages, deviceId }: { packages: string[]; deviceId?: string },
+  ) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: "Save Backup File",
+      defaultPath: `adb_backup_${Date.now()}.ab`,
+      filters: [{ name: "Android Backup", extensions: ["ab"] }],
+    });
+    if (canceled || !filePath) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const pkgArgs = packages.map((p) => `"${p}"`).join(" ");
+    const result = await svc.execute(
+      `backup -f "${filePath}" -noapk ${pkgArgs}`,
+      120000,
+    );
+    return { ...result, localPath: filePath };
+  },
+);
+
 app.on("window-all-closed", () => {
   if (logcatProcess) {
     logcatProcess.kill();
