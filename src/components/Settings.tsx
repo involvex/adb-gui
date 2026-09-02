@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { settingsStore, type AppSettings } from "../appSettings";
 import { adbService } from "../adbService";
 import { backupStore, type BackupData } from "../backupStore";
@@ -13,11 +13,7 @@ const Settings: React.FC = () => {
   const [checkingAdb, setCheckingAdb] = useState(false);
   const [backupPreview, setBackupPreview] = useState<BackupData | null>(null);
 
-  useEffect(() => {
-    checkAdb();
-  }, []);
-
-  const checkAdb = async () => {
+  const checkAdb = useCallback(async () => {
     setCheckingAdb(true);
     try {
       const info = await adbService.getADBInfo();
@@ -27,7 +23,11 @@ const Settings: React.FC = () => {
     } finally {
       setCheckingAdb(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkAdb();
+  }, [checkAdb]);
 
   const handleSave = () => {
     settingsStore.save(settings);
@@ -203,10 +203,11 @@ const Settings: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400">
+              <label htmlFor="default-buffer" className="text-xs text-gray-400">
                 Default Logcat Buffer
               </label>
               <select
+                id="default-buffer"
                 value={settings.defaultBuffer}
                 onChange={(e) =>
                   setSettings({ ...settings, defaultBuffer: e.target.value })
@@ -223,10 +224,14 @@ const Settings: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400">
+              <label
+                htmlFor="default-priority"
+                className="text-xs text-gray-400"
+              >
                 Default Logcat Priority
               </label>
               <select
+                id="default-priority"
                 value={settings.defaultPriority}
                 onChange={(e) =>
                   setSettings({ ...settings, defaultPriority: e.target.value })

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { adbService } from "../adbService";
 import { quickCommandsStore, type QuickCommand } from "../electronStore";
 
@@ -14,7 +14,7 @@ const QuickCommands: React.FC = () => {
   const [formIcon, setFormIcon] = useState("⚡");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadCommands = () => {
+  const loadCommands = useCallback(() => {
     setLoading(true);
     try {
       setCommands(quickCommandsStore.getAll());
@@ -23,11 +23,11 @@ const QuickCommands: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadCommands();
-  }, []);
+  }, [loadCommands]);
 
   const extractPlaceholders = (cmd: string): string[] => {
     const matches = cmd.match(/<([^>]+)>/g);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { adbService, setDeviceId, getDeviceId } from "../adbService";
 
 interface Device {
@@ -12,17 +12,21 @@ const TopBar: React.FC = () => {
   const [activeId, setActiveId] = useState<string | null>(getDeviceId());
   const [installMsg, setInstallMsg] = useState<string | null>(null);
   const [installing, setInstalling] = useState<boolean>(false);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
-  const loadDevices = async () => {
+  const loadDevices = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const deviceList = await adbService.getConnectedDevices();
       setDevices(deviceList.map((serial: string) => ({ serial })));
+      const current = activeIdRef.current;
       if (deviceList.length === 0) {
         setDeviceId(null);
         setActiveId(null);
-      } else if (activeId && !deviceList.includes(activeId)) {
+      } else if (current && !deviceList.includes(current)) {
         setDeviceId(null);
         setActiveId(null);
       }
@@ -31,10 +35,21 @@ const TopBar: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDevices();
+  }, [loadDevices]);
+
+  const handleCopySerial = useCallback(async (serial: string) => {
+    try {
+      await navigator.clipboard.writeText(serial);
+      setCopyStatus("Copied!");
+      setTimeout(() => setCopyStatus(null), 2000);
+    } catch {
+      setCopyStatus("Failed to copy");
+      setTimeout(() => setCopyStatus(null), 2000);
+    }
   }, []);
 
   const handleSelect = (serial: string) => {
@@ -93,18 +108,29 @@ const TopBar: React.FC = () => {
               !error &&
               devices.length > 0 &&
               devices.map((d) => (
-                <button
-                  key={d.serial}
-                  type="button"
-                  onClick={() => handleSelect(d.serial)}
-                  className={`px-2 py-0.5 rounded text-xs font-mono transition-colors border ${
-                    activeId === d.serial
-                      ? "bg-green-900/30 text-green-300 border-green-700"
-                      : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700"
-                  }`}
-                >
-                  {d.serial}
-                </button>
+                <div key={d.serial} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(d.serial)}
+                    className={`px-2 py-0.5 rounded text-xs font-mono transition-colors border ${
+                      activeId === d.serial
+                        ? "bg-green-900/30 text-green-300 border-green-700"
+                        : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700"
+                    }`}
+                  >
+                    {d.serial}
+                  </button>
+                  {activeId === d.serial && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopySerial(d.serial)}
+                      className="text-gray-500 hover:text-gray-300 transition-colors"
+                      title="Copy serial to clipboard"
+                    >
+                      📋
+                    </button>
+                  )}
+                </div>
               ))}
           </div>
         </div>
@@ -122,6 +148,7 @@ const TopBar: React.FC = () => {
             onClick={handleRefresh}
             disabled={loading}
             className="bg-gray-800 text-gray-300 px-3 py-1 rounded hover:bg-gray-700 transition-colors text-sm disabled:opacity-50"
+            title="Refresh devices (Ctrl+R)"
           >
             Refresh
           </button>
@@ -130,6 +157,11 @@ const TopBar: React.FC = () => {
       {installMsg && (
         <div className="mt-2 bg-green-900/20 border border-green-800 text-green-400 p-1.5 rounded text-xs">
           {installMsg}
+        </div>
+      )}
+      {copyStatus && (
+        <div className="mt-2 bg-cyan-900/20 border border-cyan-800 text-cyan-400 p-1.5 rounded text-xs">
+          {copyStatus}
         </div>
       )}
     </header>

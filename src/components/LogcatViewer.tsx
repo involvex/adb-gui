@@ -311,6 +311,7 @@ const LogcatViewer: React.FC = () => {
                 type="button"
                 onClick={handleCopySelected}
                 className="bg-cyan-900/40 text-cyan-200 hover:bg-cyan-900/70 px-2 py-0.5 rounded transition-colors border border-cyan-800 font-medium"
+                title="Copy selected lines (Ctrl+C)"
               >
                 Copy Selected
               </button>
@@ -345,6 +346,7 @@ const LogcatViewer: React.FC = () => {
             type="button"
             onClick={handleClear}
             className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+            title="Clear all log lines"
           >
             Clear
           </button>
@@ -357,6 +359,7 @@ const LogcatViewer: React.FC = () => {
             type="button"
             onClick={handleStart}
             className="bg-green-900/30 text-green-300 px-4 py-1.5 rounded hover:bg-green-900/50 transition-colors text-sm font-medium border border-green-800"
+            title="Start logcat (Ctrl+L)"
           >
             Start
           </button>
@@ -365,6 +368,7 @@ const LogcatViewer: React.FC = () => {
             type="button"
             onClick={handleStop}
             className="bg-red-900/30 text-red-300 px-4 py-1.5 rounded hover:bg-red-900/50 transition-colors text-sm font-medium border border-red-800"
+            title="Stop logcat"
           >
             Stop
           </button>
@@ -373,6 +377,7 @@ const LogcatViewer: React.FC = () => {
           <button
             type="button"
             onClick={handlePauseToggle}
+            title={paused ? "Resume logcat" : "Pause logcat"}
             className={`px-4 py-1.5 rounded text-sm font-medium border transition-colors ${
               paused
                 ? "bg-yellow-900/30 text-yellow-300 border-yellow-800 hover:bg-yellow-900/50"

@@ -15,6 +15,7 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedPkgs, setExpandedPkgs] = useState<Set<string>>(new Set());
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [selectedPkgs, setSelectedPkgs] = useState<Set<string>>(new Set());
   const [activities, setActivities] = useState<Map<string, string[]>>(
     new Map(),
   );
@@ -28,7 +29,7 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
     new Map(),
   );
 
-  const loadPackages = async () => {
+  const loadPackages = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -42,11 +43,11 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onCountChange]);
 
   useEffect(() => {
     loadPackages();
-  }, []);
+  }, [loadPackages]);
 
   const toggleExpand = useCallback(
     async (pkg: string) => {
@@ -133,6 +134,56 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
     pkg.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  const handleSelectAll = useCallback(() => {
+    setSelectedPkgs(new Set(filtered));
+  }, [filtered]);
+
+  const handleSelectNone = useCallback(() => {
+    setSelectedPkgs(new Set());
+  }, []);
+
+  const togglePackageSelection = useCallback((pkg: string) => {
+    setSelectedPkgs((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg)) {
+        next.delete(pkg);
+      } else {
+        next.add(pkg);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleGrantSelected = async () => {
+    const selectedArray = Array.from(selectedPkgs);
+    if (selectedArray.length === 0) return;
+    setStatusMsg(
+      `Granting permissions to ${selectedArray.length} package(s)...`,
+    );
+    setError(null);
+    let successCount = 0;
+    let failCount = 0;
+    for (const pkg of selectedArray) {
+      try {
+        await adbService.grantPermissions(pkg);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    if (failCount === 0) {
+      setStatusMsg(`Granted permissions to ${successCount} package(s)`);
+    } else {
+      setError(
+        `Granted to ${successCount}, failed for ${failCount} package(s)`,
+      );
+    }
+    setSelectedPkgs(new Set());
+    setTimeout(() => {
+      setStatusMsg(null);
+    }, 4000);
+  };
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
@@ -162,6 +213,34 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm mb-3 outline-none focus:border-gray-500 transition-colors"
         />
+      )}
+
+      {packages.length > 0 && filtered.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={handleSelectAll}
+            className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs transition-colors border border-gray-700"
+          >
+            Select All
+          </button>
+          <button
+            type="button"
+            onClick={handleSelectNone}
+            className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1 rounded text-xs transition-colors border border-gray-700"
+          >
+            Select None
+          </button>
+          {selectedPkgs.size > 0 && (
+            <button
+              type="button"
+              onClick={handleGrantSelected}
+              className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-xs font-medium border border-blue-800"
+            >
+              Grant Selected ({selectedPkgs.size})
+            </button>
+          )}
+        </div>
       )}
 
       {statusMsg && (
@@ -212,6 +291,12 @@ const PermissionManager: React.FC<PermissionManagerProps> = ({
                   >
                     {isExpanded ? "\u25BC" : "\u25B6"}
                   </button>
+                  <input
+                    type="checkbox"
+                    checked={selectedPkgs.has(pkg)}
+                    onChange={() => togglePackageSelection(pkg)}
+                    className="w-3.5 h-3.5 rounded bg-gray-800 border-gray-600 text-blue-500 focus:ring-blue-500 shrink-0"
+                  />
                   <code className="text-gray-200 text-xs truncate flex-1">
                     {pkg}
                   </code>

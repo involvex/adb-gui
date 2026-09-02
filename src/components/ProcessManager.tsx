@@ -37,6 +37,13 @@ const ProcessManager: React.FC = () => {
   }, [loadProcesses]);
 
   const handleKill = async (pkgName: string) => {
+    if (
+      !confirm(
+        `Force-stop ${pkgName}?\n\nThis will immediately stop the app and clear its running processes.`,
+      )
+    ) {
+      return;
+    }
     setStatusMsg(`Stopping ${pkgName}...`);
     try {
       await adbService.forceStop(pkgName);
