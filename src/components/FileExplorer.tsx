@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { adbService } from "../adbService";
+import { parseAdbError } from "../errorUtils";
 
 interface FileEntry {
   name: string;
@@ -120,7 +121,9 @@ const FileExplorer: React.FC = () => {
       }
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Failed to list directory";
+        err instanceof Error
+          ? parseAdbError(err.message, "Failed to list directory")
+          : "Failed to list directory";
       setError(msg);
       setEntries([]);
     } finally {
@@ -154,7 +157,7 @@ const FileExplorer: React.FC = () => {
       if (result.error && result.error !== "cancelled") {
         setError(result.error);
       } else if (result.exitCode !== 0 && result.error !== "cancelled") {
-        setError(result.stderr || "Pull failed");
+        setError(parseAdbError(result.stderr, "Pull failed"));
       } else if (result.error !== "cancelled") {
         setStatusMsg(
           `Pulled "${entry.name}" to ${result.localPath || "local"}`,
@@ -174,7 +177,10 @@ const FileExplorer: React.FC = () => {
         }, 10000);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Pull failed";
+      const msg =
+        err instanceof Error
+          ? parseAdbError(err.message, "Pull failed")
+          : "Pull failed";
       setError(msg);
     }
   };

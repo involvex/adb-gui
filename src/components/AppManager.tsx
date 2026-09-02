@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
+import { parseAdbError } from "../errorUtils";
+import { useDebounce } from "../useDebounce";
 
 interface AppInfo {
   name: string;
@@ -15,7 +17,6 @@ const AppManager: React.FC = () => {
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [expandedApp, setExpandedApp] = useState<string | null>(null);
   const [appDetails, setAppDetails] = useState<Map<string, AppInfo>>(new Map());
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
@@ -23,6 +24,8 @@ const AppManager: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [showSystem, setShowSystem] = useState(false);
+  const [rawSearch, setRawSearch] = useState("");
+  const searchTerm = useDebounce(rawSearch, 200);
 
   const loadApps = useCallback(async () => {
     setLoading(true);
@@ -125,11 +128,13 @@ const AppManager: React.FC = () => {
       if (result.exitCode === 0) {
         setActionStatus(`Data cleared for ${pkg}`);
       } else {
-        setActionError(result.stderr || "Failed to clear data");
+        setActionError(parseAdbError(result.stderr, "Failed to clear data"));
       }
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "Failed to clear data",
+        err instanceof Error
+          ? parseAdbError(err.message, "Failed to clear data")
+          : "Failed to clear data",
       );
     }
     setTimeout(() => {
@@ -155,11 +160,13 @@ const AppManager: React.FC = () => {
         setApps((prev) => prev.filter((a) => a.name !== pkg));
         setExpandedApp(null);
       } else {
-        setActionError(result.stderr || "Failed to uninstall");
+        setActionError(parseAdbError(result.stderr, "Failed to uninstall"));
       }
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "Failed to uninstall",
+        err instanceof Error
+          ? parseAdbError(err.message, "Failed to uninstall")
+          : "Failed to uninstall",
       );
     }
     setTimeout(() => {
@@ -177,12 +184,14 @@ const AppManager: React.FC = () => {
       if (result.exitCode === 0) {
         setActionStatus(`${pkg} ${enable ? "enabled" : "disabled"}`);
       } else {
-        setActionError(result.stderr || `Failed to ${action.toLowerCase()}`);
+        setActionError(
+          parseAdbError(result.stderr, `Failed to ${action.toLowerCase()}`),
+        );
       }
     } catch (err) {
       setActionError(
         err instanceof Error
-          ? err.message
+          ? parseAdbError(err.message, `Failed to ${action.toLowerCase()}`)
           : `Failed to ${action.toLowerCase()}`,
       );
     }
@@ -213,9 +222,9 @@ const AppManager: React.FC = () => {
     try {
       const result = await adbService.exportApk(pkg);
       if (result.error && result.error !== "cancelled") {
-        setActionError(result.error);
+        setActionError(parseAdbError(result.error, "Export failed"));
       } else if (result.exitCode !== 0 && result.error !== "cancelled") {
-        setActionError(result.stderr || "Export failed");
+        setActionError(parseAdbError(result.stderr, "Export failed"));
       } else if (result.error !== "cancelled") {
         setActionStatus(`APK exported to ${result.localPath}`);
       }
@@ -264,8 +273,8 @@ const AppManager: React.FC = () => {
         <input
           type="text"
           placeholder="Search apps..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={rawSearch}
+          onChange={(e) => setRawSearch(e.target.value)}
           className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm mb-3 outline-none focus:border-gray-500 transition-colors"
         />
       )}

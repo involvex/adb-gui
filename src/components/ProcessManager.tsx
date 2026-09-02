@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
+import { parseAdbError } from "../errorUtils";
+import { useDebounce } from "../useDebounce";
 
 interface ProcessInfo {
   user: string;
@@ -11,13 +13,14 @@ interface ProcessInfo {
 }
 
 const ProcessManager: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState<string>("");
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [sortBy, setSortBy] = useState<"pid" | "name" | "cpu" | "mem">("pid");
+  const [rawSearch, setRawSearch] = useState<string>("");
+  const searchTerm = useDebounce(rawSearch, 200);
 
   const loadProcesses = useCallback(async () => {
     setLoading(true);
@@ -54,7 +57,9 @@ const ProcessManager: React.FC = () => {
       setTimeout(() => setStatusMsg(null), 3000);
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : `Failed to stop ${pkgName}`;
+        err instanceof Error
+          ? parseAdbError(err.message, `Failed to stop ${pkgName}`)
+          : `Failed to stop ${pkgName}`;
       setError(msg);
       setStatusMsg(null);
       setTimeout(() => setError(null), 5000);
@@ -129,8 +134,8 @@ const ProcessManager: React.FC = () => {
         <input
           type="text"
           placeholder="Search processes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={rawSearch}
+          onChange={(e) => setRawSearch(e.target.value)}
           className="w-full bg-gray-800 text-gray-100 border border-gray-700 rounded px-3 py-2 text-sm mb-3 outline-none focus:border-gray-500 transition-colors"
         />
       )}

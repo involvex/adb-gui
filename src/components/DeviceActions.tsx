@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { adbService } from "../adbService";
+import { parseAdbError } from "../errorUtils";
 
 const DeviceActions: React.FC = () => {
   const [loading, setLoading] = useState<string | null>(null);
@@ -33,7 +34,7 @@ const DeviceActions: React.FC = () => {
         setStatusMsg(`Screenshot saved: ${name}`);
         setTimeout(() => setStatusMsg(null), 5000);
       } else {
-        setError(result.stderr || "Screenshot failed");
+        setError(parseAdbError(result.stderr, "Screenshot failed"));
       }
     });
   };
@@ -51,7 +52,7 @@ const DeviceActions: React.FC = () => {
         setStatusMsg(`Recording saved: ${name}`);
         setTimeout(() => setStatusMsg(null), 5000);
       } else {
-        setError(result.stderr || "Screenrecord failed");
+        setError(parseAdbError(result.stderr, "Screenrecord failed"));
       }
     });
   };
