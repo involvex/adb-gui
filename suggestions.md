@@ -24,6 +24,7 @@ Based on analysis of the current codebase, here are categorized feature ideas or
 - WiFi ADB Connection (tcpip, connect/disconnect, recent devices)
 - App Settings Backup & Restore (export/import all app data as JSON)
 - App Backup tab (selective app backup with data to .ab files)
+- Logcat Bookmark Manager (save/load filter combinations)
 
 ---
 
@@ -137,6 +138,7 @@ Improve existing logcat viewer.
 - Timestamp format options (relative vs absolute vs UTC)
 - Log entry count limit configuration
 - Bookmark/collapse log sections
+- **Logcat Bookmark Manager** ✅ — Save current filter combinations (priority, buffer, tags, PID) as named bookmarks for quick re-application
 
 ### 9. Quick Commands Improvements
 
@@ -352,22 +354,23 @@ Already partially implemented. Remaining:
 
 ## Implementation Priority Matrix
 
-| Priority | Feature                     | Effort     | Impact | Status         |
-| -------- | --------------------------- | ---------- | ------ | -------------- |
-| 1        | File Push (multi-file)      | Medium     | High   | ✅ Done        |
-| 2        | Device Info Enhancement     | Low        | Medium | ⏭️ Skipped*   |
-| 3        | Settings Panel (full)       | Medium     | High   | ✅ Done        |
-| 4        | WiFi ADB Connection         | Medium     | High   | ✅ Done        |
-| 5        | Screenrecord Enhancement    | Medium     | High   | ✅ Done        |
-| 6        | App Info & Management       | Medium     | High   | Pending        |
-| 7        | Process Resource Monitoring | Medium     | Medium | Pending        |
-| 8        | Logcat Enhancements         | Low-Medium | Medium | ✅ Done        |
-| 9        | Quick Commands Improvements | Low        | Medium | ✅ Done        |
-| 10       | Keyboard Shortcuts          | Low        | Medium | ✅ Done        |
-| 11       | Testing Infrastructure      | Medium     | High   | Pending        |
-| 12       | Shell Session Management    | High       | High   | Pending        |
-| 13       | App Backup Tab              | Medium     | Medium | ✅ Done        |
-| 14       | App Settings Backup/Restore | Medium     | Medium | ✅ Done        |
+| Priority | Feature                     | Effort     | Impact | Status      |
+| -------- | --------------------------- | ---------- | ------ | ----------- |
+| 1        | File Push (multi-file)      | Medium     | High   | ✅ Done     |
+| 2        | Device Info Enhancement     | Low        | Medium | ⏭️ Skipped* |
+| 3        | Settings Panel (full)       | Medium     | High   | ✅ Done     |
+| 4        | WiFi ADB Connection         | Medium     | High   | ✅ Done     |
+| 5        | Screenrecord Enhancement    | Medium     | High   | ✅ Done     |
+| 6        | App Info & Management       | Medium     | High   | Pending     |
+| 7        | Process Resource Monitoring | Medium     | Medium | Pending     |
+| 8        | Logcat Enhancements         | Low-Medium | Medium | ✅ Done     |
+| 9        | Quick Commands Improvements | Low        | Medium | ✅ Done     |
+| 10       | Keyboard Shortcuts          | Low        | Medium | ✅ Done     |
+| 11       | Testing Infrastructure      | Medium     | High   | Pending     |
+| 12       | Shell Session Management    | High       | High   | Pending     |
+| 13       | App Backup Tab              | Medium     | Medium | ✅ Done     |
+| 14       | App Settings Backup/Restore | Medium     | Medium | ✅ Done     |
+| 15       | Logcat Bookmark Manager     | Low        | Medium | ✅ Done     |
 
 *Note: Device Info already has a basic panel. Enhancement to show real-time data and additional info could be a future iteration.
 
@@ -391,6 +394,7 @@ Already partially implemented. Remaining:
 14. Add "Copy to clipboard" for device serial in TopBar
 15. Add confirmation dialog before force-stop in ProcessManager
 16. Add "Select All" / "Select None" to PermissionManager
+17. Save current Logcat filters as bookmarks ✅
 
 ---
 
