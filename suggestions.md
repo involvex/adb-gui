@@ -11,7 +11,7 @@ Based on analysis of the current codebase, here are categorized feature ideas or
 - Device management (list, select, refresh)
 - Process Manager (list, search, kill, sort by PID/name, clear)
 - Permission Manager (list 3rd-party packages, activities, grant all, launch, package count badge)
-- File Explorer (browse, navigate, pull/push files, open folder after pull)
+- File Explorer (browse, navigate, pull/push files, open folder after pull, file/folder operations)
 - Quick Commands (execute predefined macros, add/edit/delete, variable prompts, import/export)
 - Logcat Viewer (streaming, filters, pause/resume, color coding, multi-row selection & copy, keyboard shortcuts)
 - Command Bar (terminal with history, persist to localStorage, Ctrl+K focus)
@@ -20,91 +20,95 @@ Based on analysis of the current codebase, here are categorized feature ideas or
 - Device Actions (screenshot, screenrecord, reboot, input, settings)
 - Last refreshed timestamps on components
 - Improved empty state messages
+- Settings panel (window size, localStorage usage, theme)
+- WiFi ADB Connection (tcpip, connect/disconnect, recent devices)
+- App Settings Backup & Restore (export/import all app data as JSON)
+- App Backup tab (selective app backup with data to .ab files)
 
 ---
 
 ## High Priority - Core Functionality
 
-### 1. File Push Support
+### 1. File Push Support (Multi-file/folder)
 
 **Effort:** Medium  
 **Files:** `electron/main.ts`, `electron/preload.ts`, `src/adbService.ts`, `src/components/FileExplorer.tsx`
 
 Currently only `Pull` exists. Add `Push` button to upload files from host to device.
 
-- Add IPC handler `adb:push-file` with `dialog.showOpenDialog` (multi-file support)
+- Add IPC handler `adb:push-file` with `dialog.showOpenElement` (multi-file support)
 - Add `pushFile()` to preload bridge
 - Add UI button next to Pull in FileExplorer
 - Support both file and folder push
 
-### 2. Device Info Panel
+### 2. Device Info Enhancement
 
 **Effort:** Low  
-**Files:** New component `src/components/DeviceInfo.tsx`, `src/App.tsx`
+**Files:** `src/components/DeviceInfo.tsx`, `electron/adbService.ts`
 
-Display comprehensive device information in a dedicated panel or modal.
+Enhance the existing Device Info panel with more detailed information.
 
-- Device model, manufacturer, Android version, SDK level
-- Screen resolution, density
-- Battery status and level
-- Storage usage (internal/external)
-- Network info (WiFi SSID, IP address)
-- ADB connection type (USB/WiFi)
+- Add real-time battery monitoring with charge status
+- Show device uptime and kernel version
+- Add WiFi MAC address and Bluetooth status
+- Display IMEI/SN (if available)
+- Add copy-to-clipboard buttons for device identifiers
 
-### 3. Settings Panel
+### 3. Settings Panel (Additional Options)
 
 **Effort:** Medium  
-**Files:** New component `src/components/Settings.tsx`, new IPC handlers
+**Files:** `src/components/Settings.tsx`, new IPC handlers
 
-Persistent settings for the application.
+Expand the existing settings panel.
 
 - ADB path configuration (auto-detect or manual)
-- Default device selection
-- Theme toggle (dark/light)
+- Default device selection preference
+- Theme customization (accent colors, compact mode)
 - Default logcat buffer/priority
-- Quick Commands import/export (JSON)
+- Command timeout configuration per module
 - Window size/position persistence
 
-### 4. WiFi ADB Connection
+### 3.5. App Data Backup Enhancement
 
-**Effort:** Medium  
-**Files:** `electron/adbService.ts`, `src/components/TopBar.tsx`
+**Effort:** Low  
+**Files:** `src/components/BackupManager.tsx`, `src/backupStore.ts`
 
-Connect to devices wirelessly without USB.
+The existing app backup feature (for ADB GUI's own settings) could be enhanced:
 
-- `adb tcpip <port>` to enable WiFi debugging
-- `adb connect <ip>:<port>` to connect
-- Auto-discovery via `adb mdns` (Android 11+)
-- Save connection history for quick reconnect
+- Auto-save backups on a schedule (e.g., before major operations)
+- Show backup file size and creation date
+- Compress large backups
+- Version migration for backup format
 
 ---
 
 ## Medium Priority - Enhanced Features
 
-### 5. Screenshot/Screenrecord
+### 4. Screenrecord Enhancement
 
 **Effort:** Medium  
-**Files:** New handlers in `electron/main.ts`, UI in TopBar or dedicated panel
+**Files:** `src/components/DeviceActions.tsx`, `electron/main.ts`
 
-Capture device screen for debugging.
+Improve the existing screenrecord functionality.
 
-- Screenshot: `adb shell screencap -p` → save to host
-- Screenrecord: `adb shell screenrecord` → time-limited recording
-- Thumbnail preview before saving
-- Copy to clipboard option
+- Time-limited recording with progress indicator
+- Video file size preview
+- Record with audio option (requires Android 10+)
+- Inline video preview before saving
 
 ### 6. App Info & Management
 
 **Effort:** Medium  
 **Files:** New component `src/components/AppManager.tsx`
 
-Extended package management beyond permissions.
+Package management beyond permissions and backup.
 
 - View app details (version, size, install date, permissions count)
 - Clear app data/cache
-- Uninstall app
-- Disable/enable app
-- Export APK from device
+- Uninstall app with confirmation
+- Disable/enable app (system apps)
+- Export APK from device (`pm path` + pull)
+- Force stop individual apps
 
 ### 7. Process Details & Resource Monitoring
 
@@ -113,10 +117,10 @@ Extended package management beyond permissions.
 
 Enhanced process management with resource visibility.
 
-- CPU/memory usage per process (`top` output parsing)
-- Process tree view (parent-child relationships)
+- CPU/memory usage per process (`top -n 1` output parsing)
+- Process tree view (parent-child relationships via `ps --forest`)
 - Kill with signal options (SIGTERM vs SIGKILL)
-- Real-time refresh interval option
+- Real-time refresh interval option (auto-refresh toggle)
 - Filter by user (root, system, app)
 
 ### 8. Logcat Enhancements
@@ -126,43 +130,39 @@ Enhanced process management with resource visibility.
 
 Improve existing logcat viewer.
 
-- Log level filter (multi-select, not just minimum)
+- Log level filter (multi-select, not just minimum threshold)
 - Tag-based filtering with UI chips
 - Regex search support
 - Export logs to file (`.log` or `.txt`)
-- Timestamp format options (relative vs absolute)
+- Timestamp format options (relative vs absolute vs UTC)
 - Log entry count limit configuration
 - Bookmark/collapse log sections
-- Multi-row selection and copy ✅
 
 ### 9. Quick Commands Improvements
 
 **Effort:** Low  
 **Files:** `src/components/QuickCommands.tsx`, `src/electronStore.ts`
 
-Enhance the Quick Commands system.
+Already partially implemented. Remaining enhancements:
 
-- Add/edit/delete commands via UI (currently only reset)
-- Variable placeholders with prompts (e.g., `<package>` asks user)
 - Command categories/folders
 - Drag-and-drop reordering
-- Import/export as JSON
-- Recent commands history
 - Favorite/pin frequently used commands
+- Recent commands history section
 
 ### 10. Keyboard Shortcuts
 
 **Effort:** Low  
-**Files:** `src/App.tsx`, new utility
+**Files:** `src/App.tsx`, `src/components/*`
 
-Global keyboard shortcuts for power users.
+Already partially implemented. Expand coverage:
 
-- `Ctrl+R` - Refresh devices
-- `Ctrl+K` - Focus Command Bar ✅
-- `Ctrl+1-6` - Switch tabs
-- `Ctrl+Shift+L` - Start/Stop Logcat
-- `Ctrl+Shift+P` - Process Manager focus
-- Custom shortcut configuration
+- `Ctrl/⌘ + R` - Refresh devices
+- `Ctrl/⌘ + K` - Focus Command Bar ✅
+- `Ctrl/⌘ + 1-7` - Switch tabs (Dashboard, Process, Permissions, Files, Quick Cmds, Logcat, Backup)
+- `Ctrl/⌘ + Shift + L` - Start/Stop Logcat
+- `Ctrl/⌘ + Shift + P` - Process Manager focus
+- Custom shortcut configuration in Settings
 
 ---
 
@@ -176,7 +176,7 @@ Global keyboard shortcuts for power users.
 Execute multiple commands in sequence or parallel.
 
 - Batch APK install (select multiple APKs)
-- Batch file pull/push
+- Batch file pull/push with queue
 - Command queue with progress display
 - Save/load command batches as presets
 
@@ -200,47 +200,32 @@ Add automated testing for reliability.
 Interactive shell session with multiple tabs.
 
 - Persistent `adb shell` session (not one-off commands)
-- Multiple shell tabs
-- Command history persistence
+- Multiple shell tabs with session naming
+- Command history persistence per session
 - Auto-complete for common commands
 - Session recording/playback
 
-### 14. Device Actions Panel
-
-**Effort:** Low  
-**Files:** New component `src/components/DeviceActions.tsx`
-
-Quick action buttons for common device operations.
-
-- Reboot (normal, recovery, bootloader)
-- Power off
-- Screenshot
-- Toggle USB debugging
-- Toggle stay awake
-- Set screen timeout
-- Input text/keyevent shortcuts
-
-### 15. Notification Management
+### 14. Notification Management
 
 **Effort:** Medium  
 **Files:** New component, ADB notification commands
 
 View and manage device notifications.
 
-- List active notifications
-- Clear notifications
-- Send test notification
-- Notification history
+- List active notifications (`dumpsys notification` parsing)
+- Clear individual or all notifications
+- Filter by app or priority
+- Export notification history
 
-### 16. File Explorer Enhancements
+### 15. File Explorer Enhancements
 
 **Effort:** Low-Medium  
 **Files:** `src/components/FileExplorer.tsx`
 
-Improve file browsing experience.
+Already partially implemented (pull/push, open folder). Remaining:
 
 - File preview (images, text, APK info)
-- Delete file/folder
+- Delete file/folder on device
 - Rename file/folder
 - Create new folder
 - File permissions editing (chmod)
@@ -248,20 +233,20 @@ Improve file browsing experience.
 - File search within current directory
 - Sort by name/size/date
 
-### 17. Network Inspector
+### 16. Network Inspector
 
 **Effort:** High  
 **Files:** New component, ADB shell commands
 
 View network activity and configuration.
 
-- Active connections (`netstat` output)
-- WiFi configuration
+- Active connections (`netstat` output parsing)
+- WiFi configuration details
 - DNS settings
-- Proxy settings
+- Proxy settings (get/set)
 - Network speed test
 
-### 18. Performance Dashboard
+### 17. Performance Dashboard
 
 **Effort:** High  
 **Files:** New component, monitoring hooks
@@ -271,22 +256,22 @@ Real-time device performance monitoring.
 - CPU usage graph (per-core)
 - Memory usage graph
 - Battery drain rate
-- Storage I/O
+- Storage I/O metrics
 - Network throughput
 
-### 19. Theme Customization
+### 18. Theme Customization
 
 **Effort:** Low  
-**Files:** `src/index.css`, new settings
+**Files:** `src/index.css`, `src/components/Settings.tsx`
 
 Customizable appearance.
 
 - Custom accent colors
 - Font size options
 - Compact/comfortable mode
-- Export/import theme
+- Export/import theme presets
 
-### 20. Accessibility Improvements
+### 19. Accessibility Improvements
 
 **Effort:** Low-Medium  
 **Files:** All components
@@ -295,84 +280,100 @@ Better accessibility compliance.
 
 - ARIA labels on all interactive elements
 - Keyboard navigation for all components
-- High contrast mode
+- High contrast mode toggle
 - Screen reader announcements for status updates
 - Focus management for modals
+
+### 20. Multi-Device Management
+
+**Effort:** Medium  
+**Files:** `src/components/TopBar.tsx`, `electron/adbService.ts`
+
+Enhanced support for multiple connected devices.
+
+- Per-device tab interface
+- Device grouping/naming
+- Sync operations across selected devices
+- Device comparison views
+
+### 21. APK Analysis
+
+**Effort:** Medium  
+**Files:** New component, `apkanalyzer` integration
+
+Analyze APK files before installation.
+
+- Show app permissions
+- Show app size breakdown
+- Show native architectures (splits)
+- Compare with installed version
 
 ---
 
 ## Bug Fixes & Code Quality
 
-### 21. Error Handling Improvements
+### 22. Error Handling Improvements
 
 **Effort:** Low  
-**Files:** All service files
+**Files:** All service and component files
 
 Better error messages and recovery.
 
 - User-friendly error messages (not raw ADB output)
 - Retry logic for transient failures
 - Connection lost detection and recovery
-- Command timeout handling with progress
+- Command timeout handling with progress feedback
 
-### 22. Type Safety Improvements
+### 23. Type Safety & Performance
 
-**Effort:** Low  
+**Effort:** Low-Medium  
 **Files:** All TypeScript files
 
-Strengthen type definitions.
-
-- Replace `any` types with proper interfaces
+- Replace any remaining `any` types with proper interfaces
 - Generic types for IPC responses
-- Strict event handler types
-- Branded types for device IDs
-
-### 23. Performance Optimizations
-
-**Effort:** Low  
-**Files:** Various
-
-Improve app responsiveness.
-
 - Virtualized lists for large process/package lists
 - Debounced search inputs
 - Lazy loading for components
 - Memoization for expensive computations
-- Web Workers for heavy parsing
 
 ### 24. Documentation
 
 **Effort:** Low  
-**Files:** `README.md`, new docs ✅
+**Files:** `README.md`, new docs
 
-Comprehensive documentation.
+Already partially implemented. Remaining:
 
-- User guide with screenshots ✅
-- Developer setup guide ✅
-- API documentation for IPC
-- Contributing guidelines ✅
+- API documentation for IPC channels
+- Keyboard shortcuts reference guide
+- Troubleshooting guide
 - Changelog
 
 ---
 
 ## Implementation Priority Matrix
 
-| Priority | Feature                     | Effort     | Impact | Status  |
-| -------- | --------------------------- | ---------- | ------ | ------- |
-| 1        | File Push Support           | Medium     | High   | ✅ Done |
-| 2        | Device Info Panel           | Low        | Medium | ✅ Done |
-| 3        | Settings Panel              | Medium     | High   | Pending |
-| 4        | WiFi ADB Connection         | Medium     | High   | Pending |
-| 5        | Screenshot/Screenrecord     | Medium     | High   | ✅ Done |
-| 6        | Quick Commands Improvements | Low        | Medium | ✅ Done |
-| 7        | Keyboard Shortcuts          | Low        | Medium | Partial |
-| 8        | Logcat Enhancements         | Low-Medium | Medium | ✅ Done |
-| 9        | Testing Infrastructure      | Medium     | High   | Pending |
-| 10       | Device Actions Panel        | Low        | Medium | ✅ Done |
+| Priority | Feature                     | Effort     | Impact | Status         |
+| -------- | --------------------------- | ---------- | ------ | -------------- |
+| 1        | File Push (multi-file)      | Medium     | High   | ✅ Done        |
+| 2        | Device Info Enhancement     | Low        | Medium | ⏭️ Skipped*   |
+| 3        | Settings Panel (full)       | Medium     | High   | ✅ Done        |
+| 4        | WiFi ADB Connection         | Medium     | High   | ✅ Done        |
+| 5        | Screenrecord Enhancement    | Medium     | High   | ✅ Done        |
+| 6        | App Info & Management       | Medium     | High   | Pending        |
+| 7        | Process Resource Monitoring | Medium     | Medium | Pending        |
+| 8        | Logcat Enhancements         | Low-Medium | Medium | ✅ Done        |
+| 9        | Quick Commands Improvements | Low        | Medium | ✅ Done        |
+| 10       | Keyboard Shortcuts          | Low        | Medium | ✅ Done        |
+| 11       | Testing Infrastructure      | Medium     | High   | Pending        |
+| 12       | Shell Session Management    | High       | High   | Pending        |
+| 13       | App Backup Tab              | Medium     | Medium | ✅ Done        |
+| 14       | App Settings Backup/Restore | Medium     | Medium | ✅ Done        |
+
+*Note: Device Info already has a basic panel. Enhancement to show real-time data and additional info could be a future iteration.
 
 ---
 
-## Quick Wins (Can be done in < 1 hour each)
+## Quick Wins (< 1 hour each)
 
 1. Add `Clear` button to ProcessManager ✅
 2. Add package count badge to PermissionManager tab ✅
@@ -384,8 +385,55 @@ Comprehensive documentation.
 8. Copy logcat line on click / Multi-select & Copy ✅
 9. Add "Open containing folder" after file pull ✅
 10. Persist CommandBar history to localStorage ✅
-11. Add Logcat search filter highlighting / debouncing ⏳ (Next planned quick win)
+11. Add Logcat search filter highlighting / debouncing ✅
+12. Add file preview for text/images in FileExplorer
+13. Add shortcut label hints in tooltips (e.g., "Ctrl+K")
+14. Add "Copy to clipboard" for device serial in TopBar
+15. Add confirmation dialog before force-stop in ProcessManager
+16. Add "Select All" / "Select None" to PermissionManager
 
 ---
 
-_Generated from codebase analysis. Updated: 2026-08-27_
+## New Suggestions (2026-09-02)
+
+Based on the recent backup feature additions, here are new ideas:
+
+### 25. Remote Control / Mirroring
+
+**Effort:** High  
+**Files:** New component, `scrcpy` integration
+
+Integrate screen mirroring and remote control using scrcpy:
+
+- Live device screen mirroring in the app
+- Click/drag to control device from desktop
+- Keyboard input passthrough
+- Recording of mirrored sessions
+
+### 26. Logcat Bookmark Manager
+
+**Effort:** Low  
+**Files:** `src/components/LogcatViewer.tsx`
+
+- Save frequently used tag/level filters as bookmarks
+- Share filter configurations between devices
+
+### 27. ADB Command Snippets Library
+
+**Effort:** Medium  
+**Files:** New panel or QuickCommands enhancement
+
+- Pre-built collection of useful ADB snippets organized by category
+- Curated by difficulty level (beginner, intermediate, advanced)
+- Searchable with descriptions
+
+### 28. Device Profiles
+
+**Effort:** Medium  
+**Files:** New store module, Settings panel
+
+- Save device-specific settings (preferred packages, filters, tabs)
+- Auto-load profile when device connects
+- Export/import profiles
+
+_Generated from codebase analysis. Updated: 2026-09-02_
