@@ -11,6 +11,7 @@ import DeviceActions from "./components/DeviceActions";
 import Settings from "./components/Settings";
 import WifiConnection from "./components/WifiConnection";
 import BackupManager from "./components/BackupManager";
+import AppManager from "./components/AppManager";
 
 type Section =
   | "dashboard"
@@ -23,7 +24,8 @@ type Section =
   | "quick"
   | "logcat"
   | "settings"
-  | "backup";
+  | "backup"
+  | "apps";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
@@ -32,6 +34,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "actions", label: "Actions" },
   { key: "processes", label: "Process Manager" },
   { key: "permissions", label: "Permissions" },
+  { key: "apps", label: "Apps" },
   { key: "files", label: "File Explorer" },
   { key: "quick", label: "Quick Commands" },
   { key: "logcat", label: "Logcat" },
@@ -91,6 +94,7 @@ function App() {
         {activeSection === "permissions" && (
           <PermissionManager onCountChange={setPackageCount} />
         )}
+        {activeSection === "apps" && <AppManager />}
         {activeSection === "files" && <FileExplorer />}
         {activeSection === "quick" && <QuickCommands />}
         {activeSection === "logcat" && <LogcatViewer />}

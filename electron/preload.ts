@@ -141,4 +141,64 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:backup-apps", { packages, deviceId });
   },
+
+  getAppInfo(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{
+    version: string;
+    targetSdk: string;
+    size: string;
+    installDate: string;
+    label: string;
+  }> {
+    return ipcRenderer.invoke("adb:get-app-info", { packageName, deviceId });
+  },
+
+  clearAppData(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return ipcRenderer.invoke("adb:clear-app-data", { packageName, deviceId });
+  },
+
+  uninstallApp(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return ipcRenderer.invoke("adb:uninstall-app", { packageName, deviceId });
+  },
+
+  toggleApp(
+    packageName: string,
+    enable: boolean,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return ipcRenderer.invoke("adb:toggle-app", {
+      packageName,
+      enable,
+      deviceId,
+    });
+  },
+
+  exportApk(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:export-apk", { packageName, deviceId });
+  },
+
+  exportLogcat(lines: string): Promise<{
+    success: boolean;
+    error?: string;
+    localPath?: string;
+  }> {
+    return ipcRenderer.invoke("adb:export-logcat", { lines });
+  },
 });

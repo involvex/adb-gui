@@ -140,6 +140,27 @@ const LogcatViewer: React.FC = () => {
     setLastSelectedId(null);
   }, []);
 
+  const handleExport = useCallback(async () => {
+    if (lines.length === 0) return;
+    const text = lines
+      .map((l) =>
+        l.date && l.time
+          ? `${l.date} ${l.time} ${l.pid} ${l.tid} ${l.level} ${l.tag}: ${l.message}`
+          : l.raw,
+      )
+      .join("\n");
+    try {
+      const result = await adbService.exportLogcat(text);
+      if (result.localPath) {
+        setCopiedStatus(`Exported to ${result.localPath}`);
+        setTimeout(() => setCopiedStatus(null), 4000);
+      }
+    } catch {
+      setCopiedStatus("Export failed");
+      setTimeout(() => setCopiedStatus(null), 4000);
+    }
+  }, [lines]);
+
   const handleSaveBookmark = useCallback(
     (title: string) => {
       logcatBookmarkStore.add({
@@ -350,6 +371,16 @@ const LogcatViewer: React.FC = () => {
           >
             Clear
           </button>
+          {lines.length > 0 && (
+            <button
+              type="button"
+              onClick={handleExport}
+              className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm border border-blue-800"
+              title="Export logs to file"
+            >
+              Export
+            </button>
+          )}
         </div>
       </div>
 

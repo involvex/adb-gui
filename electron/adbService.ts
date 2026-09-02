@@ -300,6 +300,97 @@ export class AdbService {
     }
     return { success: true, results };
   }
+
+  async getAppInfo(packageName: string): Promise<{
+    version: string;
+    targetSdk: string;
+    size: string;
+    installDate: string;
+    label: string;
+  }> {
+    const dumpResult = await this.execute(
+      `shell dumpsys package ${packageName}`,
+      15000,
+    );
+    const stdout = dumpResult.stdout;
+
+    const versionMatch = stdout.match(/versionName=(\S+)/);
+    const targetSdkMatch = stdout.match(/targetSdk=(\S+)/);
+    const firstInstallMatch = stdout.match(/firstInstallTime=(.+)/);
+
+    const pathResult = await this.execute(
+      `shell pm path ${packageName}`,
+      10000,
+    );
+    let size = "unknown";
+    const apkPath = pathResult.stdout
+      .split("\n")
+      .find((l: string) => l.startsWith("package:"))
+      ?.replace("package:", "")
+      ?.trim();
+    if (apkPath) {
+      const sizeResult = await this.execute(
+        `shell stat -c %s ${apkPath}`,
+        10000,
+      );
+      const sizeBytes = parseInt(sizeResult.stdout.trim(), 10);
+      if (!isNaN(sizeBytes)) {
+        if (sizeBytes >= 1048576) {
+          size = (sizeBytes / 1048576).toFixed(1) + " MB";
+        } else if (sizeBytes >= 1024) {
+          size = (sizeBytes / 1024).toFixed(1) + " KB";
+        } else {
+          size = sizeBytes + " B";
+        }
+      }
+    }
+
+    const labelResult = await this.execute(
+      `shell pm dump ${packageName} | grep -m1 "application-label:"`,
+    );
+    const labelMatch = labelResult.stdout.match(/application-label:"([^"]+)"/);
+
+    return {
+      version: versionMatch?.[1] || "unknown",
+      targetSdk: targetSdkMatch?.[1] || "unknown",
+      size,
+      installDate: firstInstallMatch?.[1]?.trim() || "unknown",
+      label: labelMatch?.[1] || packageName,
+    };
+  }
+
+  async clearAppData(packageName: string): Promise<AdbResult> {
+    return this.execute(`shell pm clear ${packageName}`, 30000);
+  }
+
+  async uninstallApp(packageName: string): Promise<AdbResult> {
+    return this.execute(`shell pm uninstall ${packageName}`, 60000);
+  }
+
+  async toggleApp(packageName: string, enable: boolean): Promise<AdbResult> {
+    const cmd = enable ? "enable" : "disable";
+    return this.execute(`shell pm ${cmd} ${packageName}`, 15000);
+  }
+
+  async exportApk(packageName: string, localPath: string): Promise<AdbResult> {
+    const pathResult = await this.execute(
+      `shell pm path ${packageName}`,
+      10000,
+    );
+    const apkPath = pathResult.stdout
+      .split("\n")
+      .find((l: string) => l.startsWith("package:"))
+      ?.replace("package:", "")
+      ?.trim();
+    if (!apkPath) {
+      return {
+        stdout: "",
+        stderr: "APK path not found",
+        exitCode: 1,
+      };
+    }
+    return this.pull(apkPath, localPath);
+  }
 }
 
 export const adbService = new AdbService();

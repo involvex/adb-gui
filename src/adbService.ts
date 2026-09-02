@@ -88,6 +88,44 @@ interface AdbWindow {
     error?: string;
     localPath?: string;
   }>;
+  getAppInfo(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{
+    version: string;
+    targetSdk: string;
+    size: string;
+    installDate: string;
+    label: string;
+  }>;
+  clearAppData(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  uninstallApp(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  toggleApp(
+    packageName: string,
+    enable: boolean,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  exportApk(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<{
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+    error?: string;
+    localPath?: string;
+  }>;
+  exportLogcat(lines: string): Promise<{
+    success: boolean;
+    error?: string;
+    localPath?: string;
+  }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -334,6 +372,61 @@ async function backupApps(packages: string[]): Promise<{
   return adb.backupApps(packages, currentDeviceId ?? undefined);
 }
 
+async function getAppInfo(packageName: string): Promise<{
+  version: string;
+  targetSdk: string;
+  size: string;
+  installDate: string;
+  label: string;
+}> {
+  return adb.getAppInfo(packageName, currentDeviceId ?? undefined);
+}
+
+async function clearAppData(packageName: string): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}> {
+  return adb.clearAppData(packageName, currentDeviceId ?? undefined);
+}
+
+async function uninstallApp(packageName: string): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}> {
+  return adb.uninstallApp(packageName, currentDeviceId ?? undefined);
+}
+
+async function toggleApp(
+  packageName: string,
+  enable: boolean,
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}> {
+  return adb.toggleApp(packageName, enable, currentDeviceId ?? undefined);
+}
+
+async function exportApk(packageName: string): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.exportApk(packageName, currentDeviceId ?? undefined);
+}
+
+async function exportLogcat(lines: string): Promise<{
+  success: boolean;
+  error?: string;
+  localPath?: string;
+}> {
+  return adb.exportLogcat(lines);
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -363,6 +456,12 @@ export const adbService = {
   screenrecord,
   installApk,
   backupApps,
+  getAppInfo,
+  clearAppData,
+  uninstallApp,
+  toggleApp,
+  exportApk,
+  exportLogcat,
 };
 
 export default adbService;

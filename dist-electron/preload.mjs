@@ -1,14 +1,1 @@
-let electron = require("electron");
-//#region electron/preload.ts
-electron.contextBridge.exposeInMainWorld("adb", {
-	execute(cmd, deviceId) {
-		return electron.ipcRenderer.invoke("adb:execute", {
-			cmd,
-			deviceId
-		});
-	},
-	listDevices() {
-		return electron.ipcRenderer.invoke("adb:list-devices");
-	}
-});
-//#endregion
+let e=require("electron");e.contextBridge.exposeInMainWorld(`adb`,{execute(t,n){return e.ipcRenderer.invoke(`adb:execute`,{cmd:t,deviceId:n})},listDevices(){return e.ipcRenderer.invoke(`adb:list-devices`)},listFileEntries(t,n){return e.ipcRenderer.invoke(`adb:list-file-entries`,{remotePath:t,deviceId:n})},pullFile(t,n){return e.ipcRenderer.invoke(`adb:pull-file`,{remotePath:t,deviceId:n})},pushFile(t,n){return e.ipcRenderer.invoke(`adb:push-file`,{remotePath:t,deviceId:n})},startLogcat(t){return e.ipcRenderer.invoke(`adb:logcat-start`,t)},stopLogcat(){return e.ipcRenderer.invoke(`adb:logcat-stop`)},onLogcatLine(t){let n=(e,n)=>t(n);return e.ipcRenderer.on(`adb:logcat-line`,n),()=>{e.ipcRenderer.removeListener(`adb:logcat-line`,n)}},installApk(t){return e.ipcRenderer.invoke(`adb:install-apk`,{deviceId:t})},openFolder(t){return e.ipcRenderer.invoke(`adb:open-folder`,{folderPath:t})},getDeviceInfo(t){return e.ipcRenderer.invoke(`adb:device-info`,{deviceId:t})},screenshot(t){return e.ipcRenderer.invoke(`adb:screenshot`,{deviceId:t})},screenrecord(t,n){return e.ipcRenderer.invoke(`adb:screenrecord`,{timeLimit:t,deviceId:n})},backupApps(t,n){return e.ipcRenderer.invoke(`adb:backup-apps`,{packages:t,deviceId:n})},getAppInfo(t,n){return e.ipcRenderer.invoke(`adb:get-app-info`,{packageName:t,deviceId:n})},clearAppData(t,n){return e.ipcRenderer.invoke(`adb:clear-app-data`,{packageName:t,deviceId:n})},uninstallApp(t,n){return e.ipcRenderer.invoke(`adb:uninstall-app`,{packageName:t,deviceId:n})},toggleApp(t,n,r){return e.ipcRenderer.invoke(`adb:toggle-app`,{packageName:t,enable:n,deviceId:r})},exportApk(t,n){return e.ipcRenderer.invoke(`adb:export-apk`,{packageName:t,deviceId:n})},exportLogcat(t){return e.ipcRenderer.invoke(`adb:export-logcat`,{lines:t})}});

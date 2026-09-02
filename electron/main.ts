@@ -362,6 +362,93 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "adb:get-app-info",
+  async (
+    _event,
+    { packageName, deviceId }: { packageName: string; deviceId?: string },
+  ) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.getAppInfo(packageName);
+  },
+);
+
+ipcMain.handle(
+  "adb:clear-app-data",
+  async (
+    _event,
+    { packageName, deviceId }: { packageName: string; deviceId?: string },
+  ) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.clearAppData(packageName);
+  },
+);
+
+ipcMain.handle(
+  "adb:uninstall-app",
+  async (
+    _event,
+    { packageName, deviceId }: { packageName: string; deviceId?: string },
+  ) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.uninstallApp(packageName);
+  },
+);
+
+ipcMain.handle(
+  "adb:toggle-app",
+  async (
+    _event,
+    {
+      packageName,
+      enable,
+      deviceId,
+    }: { packageName: string; enable: boolean; deviceId?: string },
+  ) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.toggleApp(packageName, enable);
+  },
+);
+
+ipcMain.handle(
+  "adb:export-apk",
+  async (
+    _event,
+    { packageName, deviceId }: { packageName: string; deviceId?: string },
+  ) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: "Save APK",
+      defaultPath: `${packageName}.apk`,
+      filters: [{ name: "APK", extensions: ["apk"] }],
+    });
+    if (canceled || !filePath) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    const result = await svc.exportApk(packageName, filePath);
+    return { ...result, localPath: filePath };
+  },
+);
+
+ipcMain.handle(
+  "adb:export-logcat",
+  async (_event, { lines }: { lines: string }) => {
+    if (!win) return { error: "No window", exitCode: 1 };
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: "Export Logcat",
+      defaultPath: `logcat_${Date.now()}.txt`,
+      filters: [{ name: "Text", extensions: ["txt", "log"] }],
+    });
+    if (canceled || !filePath) {
+      return { error: "cancelled", exitCode: 1 };
+    }
+    const fs = await import("node:fs/promises");
+    await fs.writeFile(filePath, lines, "utf-8");
+    return { success: true, localPath: filePath };
+  },
+);
+
 app.on("window-all-closed", () => {
   if (logcatProcess) {
     logcatProcess.kill();

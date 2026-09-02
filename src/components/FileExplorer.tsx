@@ -12,6 +12,60 @@ interface FileEntry {
   date: string;
 }
 
+const TEXT_EXTENSIONS = new Set([
+  "txt",
+  "log",
+  "json",
+  "xml",
+  "yaml",
+  "yml",
+  "toml",
+  "ini",
+  "conf",
+  "cfg",
+  "sh",
+  "bash",
+  "zsh",
+  "py",
+  "js",
+  "ts",
+  "jsx",
+  "tsx",
+  "html",
+  "css",
+  "java",
+  "kt",
+  "c",
+  "cpp",
+  "h",
+  "rb",
+  "go",
+  "rs",
+  "sql",
+  "md",
+  "csv",
+  "env",
+  "gitignore",
+  "gradle",
+  "properties",
+  "prop",
+]);
+
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "svg",
+]);
+
+function extOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
 const DEFAULT_PATH = "/sdcard";
 
 function buildPath(dir: string, name: string): string {
@@ -44,6 +98,11 @@ const FileExplorer: React.FC = () => {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [pulledFolderPath, setPulledFolderPath] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [previewContent, setPreviewContent] = useState<string>("");
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const loadDir = useCallback(async (remotePath: string) => {
     setLoading(true);
@@ -149,6 +208,51 @@ const FileExplorer: React.FC = () => {
       const msg = err instanceof Error ? err.message : "Push failed";
       setError(msg);
     }
+  };
+
+  const handlePreview = async (entry: FileEntry) => {
+    const filePath = buildPath(currentPath, entry.name);
+    const ext = extOf(entry.name);
+
+    setPreviewFile(entry.name);
+    setPreviewContent("");
+    setPreviewImage(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+
+    try {
+      if (IMAGE_EXTENSIONS.has(ext)) {
+        const result = await adbService.execute(
+          `shell cat ${filePath} | base64`,
+        );
+        if (result.exitCode === 0 && result.stdout.trim()) {
+          const mime = ext === "jpg" ? "jpeg" : ext;
+          setPreviewImage(`data:image/${mime};base64,${result.stdout.trim()}`);
+        } else {
+          setPreviewError("Failed to load image");
+        }
+      } else {
+        const result = await adbService.execute(`shell cat ${filePath}`);
+        if (result.exitCode === 0) {
+          setPreviewContent(result.stdout || "(empty file)");
+        } else {
+          setPreviewError(result.stderr || "Failed to read file");
+        }
+      }
+    } catch (err) {
+      setPreviewError(
+        err instanceof Error ? err.message : "Failed to preview file",
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewFile(null);
+    setPreviewContent("");
+    setPreviewImage(null);
+    setPreviewError(null);
   };
 
   return (
@@ -324,16 +428,32 @@ const FileExplorer: React.FC = () => {
                     {entry.perms}
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePull(entry);
-                      }}
-                      className="bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded hover:bg-blue-900/50 transition-colors text-xs font-medium border border-blue-800"
-                    >
-                      Pull
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {(TEXT_EXTENSIONS.has(extOf(entry.name)) ||
+                        IMAGE_EXTENSIONS.has(extOf(entry.name))) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePreview(entry);
+                          }}
+                          className="bg-gray-800 text-gray-300 px-2 py-0.5 rounded hover:bg-gray-700 transition-colors text-xs font-medium border border-gray-700"
+                          title="Preview file"
+                        >
+                          Preview
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePull(entry);
+                        }}
+                        className="bg-blue-900/30 text-blue-300 px-2 py-0.5 rounded hover:bg-blue-900/50 transition-colors text-xs font-medium border border-blue-800"
+                      >
+                        Pull
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -348,6 +468,50 @@ const FileExplorer: React.FC = () => {
           <p className="text-xs text-gray-600">
             Connect a device via USB with debugging enabled, then press Refresh
           </p>
+        </div>
+      )}
+
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg max-w-3xl w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+              <span className="text-sm text-gray-200 font-mono truncate">
+                {previewFile}
+              </span>
+              <button
+                type="button"
+                onClick={closePreview}
+                className="text-gray-400 hover:text-gray-200 transition-colors text-lg ml-4 shrink-0"
+                aria-label="Close preview"
+              >
+                {"\u2715"}
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {previewLoading && (
+                <div className="text-gray-400 text-sm text-center py-8">
+                  Loading preview...
+                </div>
+              )}
+              {previewError && (
+                <div className="bg-red-900/20 border border-red-800 text-red-400 p-3 rounded text-sm">
+                  {previewError}
+                </div>
+              )}
+              {previewImage && !previewLoading && (
+                <img
+                  src={previewImage}
+                  alt={previewFile}
+                  className="max-w-full h-auto mx-auto rounded"
+                />
+              )}
+              {previewContent && !previewLoading && (
+                <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap break-words bg-gray-950 rounded p-3 overflow-auto max-h-[60vh]">
+                  {previewContent}
+                </pre>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
