@@ -672,24 +672,45 @@ ipcMain.handle(
       ];
 
       mirrorProcess = spawn("scrcpy", args, {
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["ignore", "ignore", "pipe"],
         detached: true,
       });
 
+      const proc = mirrorProcess;
       let stderrOutput = "";
-      mirrorProcess.stderr?.on("data", (data: Buffer) => {
+      proc.stderr?.on("data", (data: Buffer) => {
         stderrOutput += data.toString();
       });
 
-      mirrorProcess.on("error", () => {
-        mirrorProcess = null;
-      });
+      // Wait briefly to confirm scrcpy started (not exited immediately)
+      return new Promise<{ success: boolean; error?: string }>((resolve) => {
+        let settled = false;
 
-      mirrorProcess.on("close", () => {
-        mirrorProcess = null;
-      });
+        const fail = (msg: string) => {
+          if (settled) return;
+          settled = true;
+          mirrorProcess = null;
+          resolve({ success: false, error: msg });
+        };
 
-      return { success: true };
+        proc.on("error", (err) => {
+          fail(err.message);
+        });
+
+        proc.on("exit", () => {
+          fail(
+            stderrOutput.trim() ||
+              "scrcpy exited unexpectedly (is a device connected?)",
+          );
+        });
+
+        setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            resolve({ success: true });
+          }
+        }, 2000);
+      });
     } catch (err) {
       return {
         success: false,
