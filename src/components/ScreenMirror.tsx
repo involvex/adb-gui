@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { adbService } from "../adbService";
 
 interface MirrorState {
@@ -17,45 +17,25 @@ const ScreenMirror: React.FC = () => {
   const [maxSize, setMaxSize] = useState(1024);
   const [fps, setFps] = useState(30);
   const [showControls, setShowControls] = useState(true);
-  const processRef = useRef<ReturnType<typeof adbService.execute> | null>(null);
 
   const startMirror = useCallback(async () => {
     setState({ running: true, error: null, info: "Starting scrcpy..." });
 
     try {
-      const args = [
-        "--no-control",
-        "--bit-rate",
-        `${bitrate}M`,
-        "--max-size",
-        `${maxSize}`,
-        "--max-fps",
-        `${fps}`,
-        showControls ? "" : "--no-playback",
-      ]
-        .filter(Boolean)
-        .join(" ");
+      const result = await adbService.startMirror({
+        bitrate,
+        maxSize,
+        fps,
+        control: showControls,
+      });
 
-      const result = await adbService.execute(`exec-out scrcpy ${args}`);
-
-      if (result.exitCode !== 0) {
-        const fallbackResult = await adbService.execute(
-          "exec-out scrcpy --version",
-        );
-
-        if (
-          fallbackResult.exitCode !== 0 &&
-          (result.stderr.includes("not found") ||
-            result.stderr.includes("No such file"))
-        ) {
-          setState({
-            running: false,
-            error:
-              "scrcpy not found. Install it from https://github.com/Genymobile/scrcpy",
-            info: null,
-          });
-          return;
-        }
+      if (!result.success) {
+        setState({
+          running: false,
+          error: result.error || "Failed to start scrcpy",
+          info: null,
+        });
+        return;
       }
 
       setState({
@@ -72,9 +52,13 @@ const ScreenMirror: React.FC = () => {
     }
   }, [bitrate, maxSize, fps, showControls]);
 
-  const stopMirror = useCallback(() => {
+  const stopMirror = useCallback(async () => {
     setState({ running: false, error: null, info: "Mirror stopped" });
-    processRef.current = null;
+    try {
+      await adbService.stopMirror();
+    } catch {
+      // best-effort
+    }
   }, []);
 
   return (

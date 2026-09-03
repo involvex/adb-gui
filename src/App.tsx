@@ -18,6 +18,7 @@ import NetworkInspector from "./components/NetworkInspector";
 import ScreenMirror from "./components/ScreenMirror";
 import { useAnnouncer } from "./announcer";
 import { settingsStore } from "./appSettings";
+import { onNavigateSection } from "./windowControl";
 
 type Section =
   | "dashboard"
@@ -117,6 +118,13 @@ function App() {
     },
     [activeSection, handleTabChange],
   );
+
+  useEffect(() => {
+    const unsubscribe = onNavigateSection((section: string) => {
+      handleTabChange(section as Section);
+    });
+    return unsubscribe;
+  }, [handleTabChange]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);

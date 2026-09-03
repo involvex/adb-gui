@@ -135,6 +135,13 @@ interface AdbWindow {
     exitCode: number;
     error?: string;
   }>;
+  startMirror(config: {
+    bitrate: number;
+    maxSize: number;
+    fps: number;
+    control: boolean;
+  }): Promise<{ success: boolean; error?: string }>;
+  stopMirror(): Promise<{ success: boolean }>;
 }
 
 const adb = window.adb as AdbWindow;
@@ -476,6 +483,19 @@ async function pair(
   return adb.pair(target, pairingCode);
 }
 
+async function startMirror(config: {
+  bitrate: number;
+  maxSize: number;
+  fps: number;
+  control: boolean;
+}): Promise<{ success: boolean; error?: string }> {
+  return adb.startMirror(config);
+}
+
+async function stopMirror(): Promise<{ success: boolean }> {
+  return adb.stopMirror();
+}
+
 export const adbService = {
   execute,
   getConnectedDevices,
@@ -512,6 +532,8 @@ export const adbService = {
   exportApk,
   exportLogcat,
   pair,
+  startMirror,
+  stopMirror,
 };
 
 export default adbService;

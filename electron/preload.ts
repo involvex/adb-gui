@@ -213,6 +213,19 @@ contextBridge.exposeInMainWorld("adb", {
   }> {
     return ipcRenderer.invoke("adb:pair", target, pairingCode);
   },
+
+  startMirror(config: {
+    bitrate: number;
+    maxSize: number;
+    fps: number;
+    control: boolean;
+  }): Promise<{ success: boolean; error?: string }> {
+    return ipcRenderer.invoke("adb:start-mirror", config);
+  },
+
+  stopMirror(): Promise<{ success: boolean }> {
+    return ipcRenderer.invoke("adb:stop-mirror");
+  },
 });
 
 contextBridge.exposeInMainWorld("windowControl", {
@@ -229,5 +242,18 @@ contextBridge.exposeInMainWorld("windowControl", {
     globalHotkey: string;
   }): Promise<{ success: boolean }> {
     return ipcRenderer.invoke("window:save-settings", settings);
+  },
+
+  navigateSection(section: string): Promise<{ success: boolean }> {
+    return ipcRenderer.invoke("window:navigate", section);
+  },
+
+  onNavigateSection(callback: (section: string) => void): () => void {
+    const listener = (_event: Electron.IpcRendererEvent, section: string) =>
+      callback(section);
+    ipcRenderer.on("navigate:section", listener);
+    return () => {
+      ipcRenderer.removeListener("navigate:section", listener);
+    };
   },
 });

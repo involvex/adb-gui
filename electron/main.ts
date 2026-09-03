@@ -34,6 +34,7 @@ interface WindowSettings {
 
 let win: BrowserWindow | null = null;
 let logcatProcess: ChildProcess | null = null;
+let mirrorProcess: ChildProcess | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 let currentWindowSettings: WindowSettings = {
@@ -77,8 +78,8 @@ function createWindow() {
 
 function createTray() {
   if (!win) return;
-  const iconPath = path.join(process.env.VITE_PUBLIC ?? "", "icon.svg");
-  const trayIcon = nativeImage.createFromPath(iconPath);
+  const trayIconPath = path.join(process.env.VITE_PUBLIC ?? "", "icon.png");
+  const trayIcon = nativeImage.createFromPath(trayIconPath);
 
   tray = new Tray(trayIcon);
   tray.setToolTip("ADB GUI");
@@ -104,6 +105,7 @@ function createTray() {
         click: () => {
           win?.show();
           win?.focus();
+          win?.webContents.send("navigate:section", "settings");
         },
       },
       { type: "separator" },
@@ -597,6 +599,113 @@ ipcMain.handle(
     return { success: true };
   },
 );
+
+ipcMain.handle("window:navigate", async (_event, section: string) => {
+  win?.webContents.send("navigate:section", section);
+  return { success: true };
+});
+
+ipcMain.handle(
+  "adb:start-mirror",
+  async (
+    _event,
+    {
+      bitrate,
+      maxSize,
+      fps,
+      control,
+    }: {
+      bitrate: number;
+      maxSize: number;
+      fps: number;
+      control: boolean;
+    },
+  ) => {
+    if (mirrorProcess) {
+      mirrorProcess.kill();
+      mirrorProcess = null;
+    }
+
+    try {
+      const isInstalled = await new Promise<boolean>((resolve) => {
+        const check = spawn("scrcpy", ["--version"], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let done = false;
+        check.on("error", () => {
+          if (!done) {
+            done = true;
+            resolve(false);
+          }
+        });
+        check.on("close", () => {
+          if (!done) {
+            done = true;
+            resolve(true);
+          }
+        });
+        setTimeout(() => {
+          if (!done) {
+            done = true;
+            check.kill();
+            resolve(false);
+          }
+        }, 5000);
+      });
+
+      if (!isInstalled) {
+        return {
+          success: false,
+          error:
+            "scrcpy not found. Install it from https://github.com/Genymobile/scrcpy",
+        };
+      }
+
+      const args = [
+        "--bit-rate",
+        `${bitrate}M`,
+        "--max-size",
+        `${maxSize}`,
+        "--max-fps",
+        `${fps}`,
+        ...(control ? [] : ["--no-control"]),
+      ];
+
+      mirrorProcess = spawn("scrcpy", args, {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
+      });
+
+      let stderrOutput = "";
+      mirrorProcess.stderr?.on("data", (data: Buffer) => {
+        stderrOutput += data.toString();
+      });
+
+      mirrorProcess.on("error", () => {
+        mirrorProcess = null;
+      });
+
+      mirrorProcess.on("close", () => {
+        mirrorProcess = null;
+      });
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to start scrcpy",
+      };
+    }
+  },
+);
+
+ipcMain.handle("adb:stop-mirror", async () => {
+  if (mirrorProcess) {
+    mirrorProcess.kill();
+    mirrorProcess = null;
+  }
+  return { success: true };
+});
 
 app.on("before-quit", () => {
   isQuitting = true;
