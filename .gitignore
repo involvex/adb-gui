@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Bundled scrcpy binaries (downloaded separately, too large for git)
+electron/resources/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
