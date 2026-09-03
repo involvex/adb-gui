@@ -6,6 +6,8 @@ export interface AppSettings {
   theme: "dark" | "light";
   highContrast: boolean;
   defaultLocalDir: string;
+  minimizeToTray: boolean;
+  globalHotkey: string;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -16,6 +18,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   theme: "dark",
   highContrast: false,
   defaultLocalDir: "",
+  minimizeToTray: true,
+  globalHotkey: "Ctrl+Shift+H",
 };
 
 const SETTINGS_KEY = "adb-gui-app-settings";

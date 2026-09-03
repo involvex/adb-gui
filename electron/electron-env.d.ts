@@ -15,4 +15,12 @@ interface Window {
     ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
     listDevices(): Promise<string[]>;
   };
+  windowControl: {
+    showWindow: () => Promise<void>;
+    hideWindow: () => Promise<void>;
+    saveWindowSettings: (settings: {
+      minimizeToTray: boolean;
+      globalHotkey: string;
+    }) => Promise<{ success: boolean }>;
+  };
 }

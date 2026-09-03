@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { settingsStore, type AppSettings } from "../appSettings";
 import { adbService } from "../adbService";
 import { backupStore, type BackupData } from "../backupStore";
+import { saveWindowSettings } from "../windowControl";
 
 const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(settingsStore.get());
@@ -12,6 +13,8 @@ const Settings: React.FC = () => {
   } | null>(null);
   const [checkingAdb, setCheckingAdb] = useState(false);
   const [backupPreview, setBackupPreview] = useState<BackupData | null>(null);
+  const [isHotkeyCapturing, setIsHotkeyCapturing] = useState(false);
+  const [hotkeyError, setHotkeyError] = useState<string | null>(null);
 
   const checkAdb = useCallback(async () => {
     setCheckingAdb(true);
@@ -29,10 +32,67 @@ const Settings: React.FC = () => {
     checkAdb();
   }, [checkAdb]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     settingsStore.save(settings);
+    try {
+      await saveWindowSettings({
+        minimizeToTray: settings.minimizeToTray,
+        globalHotkey: settings.globalHotkey,
+      });
+    } catch {
+      // Best-effort: main process may not be available in dev renderer
+    }
     setSavedStatus("Settings saved successfully!");
     setTimeout(() => setSavedStatus(null), 2500);
+  };
+
+  const normalizeHotkey = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ): string => {
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push("Ctrl");
+    if (e.altKey) parts.push("Alt");
+    if (e.metaKey) parts.push("Cmd");
+    if (e.shiftKey) parts.push("Shift");
+    if (parts.length === 0) {
+      setHotkeyError("Hold Ctrl, Alt, or Shift with a key");
+      return "";
+    }
+    const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    if (key === " ") {
+      setHotkeyError("Please use a character key");
+      return "";
+    }
+    setHotkeyError(null);
+    return [...parts, key].join("+");
+  };
+
+  const handleHotkeyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isHotkeyCapturing) return;
+    e.preventDefault();
+    if (e.key === "Escape") {
+      setIsHotkeyCapturing(false);
+      setHotkeyError(null);
+      return;
+    }
+    const hotkey = normalizeHotkey(e);
+    if (hotkey) {
+      setSettings({ ...settings, globalHotkey: hotkey });
+      setIsHotkeyCapturing(false);
+    }
+  };
+
+  const parseHotkey = (hotkey: string): string => {
+    const parts = hotkey.split("+");
+    return parts
+      .map((p) => {
+        if (p === "Ctrl") return "Ctrl";
+        if (p === "Shift") return "Shift";
+        if (p === "Alt") return "Alt";
+        if (p === "Cmd") return "Cmd";
+        return p.toUpperCase();
+      })
+      .join(" + ");
   };
 
   const handleExportAll = () => {
@@ -299,6 +359,80 @@ const Settings: React.FC = () => {
                 }`}
               />
             </button>
+          </div>
+        </div>
+
+        {/* Window Behavior */}
+        <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 flex flex-col gap-4">
+          <h3 className="text-sm font-medium text-gray-200">Window Behavior</h3>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400">
+                Minimize to Tray on Close
+              </span>
+              <span className="text-[11px] text-gray-500">
+                Window hides to system tray instead of closing
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setSettings({
+                  ...settings,
+                  minimizeToTray: !settings.minimizeToTray,
+                })
+              }
+              role="switch"
+              aria-checked={settings.minimizeToTray}
+              aria-label="Toggle minimize to tray on close"
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                settings.minimizeToTray ? "bg-blue-600" : "bg-gray-700"
+              }`}
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                  settings.minimizeToTray ? "translate-x-4" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="global-hotkey" className="text-xs text-gray-400">
+              Global Hotkey
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="global-hotkey"
+                type="text"
+                value={parseHotkey(settings.globalHotkey)}
+                onKeyDown={handleHotkeyKeyDown}
+                onClick={() => !isHotkeyCapturing && setIsHotkeyCapturing(true)}
+                readOnly={!isHotkeyCapturing}
+                className="bg-gray-900 text-gray-200 border border-gray-700 rounded px-3 py-1.5 text-xs font-mono outline-none focus:border-gray-500 flex-1"
+                placeholder="Click to capture..."
+              />
+              {isHotkeyCapturing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsHotkeyCapturing(false);
+                    setHotkeyError(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-300 text-xs"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+            {hotkeyError && (
+              <span className="text-[11px] text-red-400">{hotkeyError}</span>
+            )}
+            <span className="text-[11px] text-gray-500">
+              Press the key combination or click to capture. Press Escape to
+              cancel.
+            </span>
           </div>
         </div>
 

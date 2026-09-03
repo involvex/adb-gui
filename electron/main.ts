@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  Tray,
+  Menu,
+  globalShortcut,
+  nativeImage,
+} from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -17,8 +27,19 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, "public")
   : RENDERER_DIST;
 
+interface WindowSettings {
+  minimizeToTray: boolean;
+  globalHotkey: string;
+}
+
 let win: BrowserWindow | null = null;
 let logcatProcess: ChildProcess | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
+let currentWindowSettings: WindowSettings = {
+  minimizeToTray: true,
+  globalHotkey: "Ctrl+Shift+H",
+};
 
 function createWindow() {
   win = new BrowserWindow({
@@ -39,6 +60,87 @@ function createWindow() {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
     win.loadFile(path.join(RENDERER_DIST, "index.html"));
+  }
+
+  win.on("close", (event) => {
+    if (isQuitting) return;
+    if (currentWindowSettings.minimizeToTray) {
+      event.preventDefault();
+      win?.hide();
+    }
+  });
+
+  win.on("show", () => win?.focus());
+
+  createTray();
+}
+
+function createTray() {
+  if (!win) return;
+  const iconPath = path.join(process.env.VITE_PUBLIC ?? "", "icon.svg");
+  const trayIcon = nativeImage.createFromPath(iconPath);
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip("ADB GUI");
+
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "Show",
+        click: () => {
+          win?.show();
+          win?.focus();
+        },
+      },
+      {
+        label: "Hide",
+        click: () => {
+          win?.hide();
+        },
+      },
+      { type: "separator" },
+      {
+        label: "Settings",
+        click: () => {
+          win?.show();
+          win?.focus();
+        },
+      },
+      { type: "separator" },
+      {
+        label: "Quit",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+
+  tray.on("click", () => {
+    if (win?.isVisible()) {
+      win.hide();
+    } else {
+      win?.show();
+      win?.focus();
+    }
+  });
+}
+
+function registerHotkey(hotkey: string) {
+  globalShortcut.unregisterAll();
+  if (hotkey) {
+    const registered = globalShortcut.register(hotkey, () => {
+      if (win?.isVisible()) {
+        win.hide();
+      } else {
+        win?.show();
+        win?.focus();
+      }
+    });
+    if (!registered) {
+      console.warn(`Failed to register global hotkey: ${hotkey}`);
+    }
   }
 }
 
@@ -473,6 +575,33 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle("window:show", async () => {
+  win?.show();
+  win?.focus();
+  return {};
+});
+
+ipcMain.handle("window:hide", async () => {
+  win?.hide();
+  return {};
+});
+
+ipcMain.handle(
+  "window:save-settings",
+  async (
+    _event,
+    settings: { minimizeToTray: boolean; globalHotkey: string },
+  ) => {
+    currentWindowSettings = settings;
+    registerHotkey(settings.globalHotkey);
+    return { success: true };
+  },
+);
+
+app.on("before-quit", () => {
+  isQuitting = true;
+});
+
 app.on("window-all-closed", () => {
   if (logcatProcess) {
     logcatProcess.kill();
@@ -490,4 +619,7 @@ app.on("activate", () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  registerHotkey(currentWindowSettings.globalHotkey);
+});

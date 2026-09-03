@@ -49,11 +49,11 @@ const sections: { key: Section; label: string }[] = [
   { key: "files", label: "File Explorer" },
   { key: "quick", label: "Quick Commands" },
   { key: "logcat", label: "Logcat" },
-  { key: "settings", label: "Settings" },
   { key: "backup", label: "Backup" },
   { key: "notifications", label: "Notifications" },
   { key: "network", label: "Network" },
   { key: "shell", label: "Shell" },
+  { key: "settings", label: "Settings" },
 ];
 
 function App() {

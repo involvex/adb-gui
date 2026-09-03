@@ -214,3 +214,20 @@ contextBridge.exposeInMainWorld("adb", {
     return ipcRenderer.invoke("adb:pair", target, pairingCode);
   },
 });
+
+contextBridge.exposeInMainWorld("windowControl", {
+  showWindow(): Promise<void> {
+    return ipcRenderer.invoke("window:show");
+  },
+
+  hideWindow(): Promise<void> {
+    return ipcRenderer.invoke("window:hide");
+  },
+
+  saveWindowSettings(settings: {
+    minimizeToTray: boolean;
+    globalHotkey: string;
+  }): Promise<{ success: boolean }> {
+    return ipcRenderer.invoke("window:save-settings", settings);
+  },
+});
