@@ -14,6 +14,8 @@ import BackupManager from "./components/BackupManager";
 import AppManager from "./components/AppManager";
 import NotificationManager from "./components/NotificationManager";
 import ShellSession from "./components/ShellSession";
+import NetworkInspector from "./components/NetworkInspector";
+import ScreenMirror from "./components/ScreenMirror";
 import { useAnnouncer } from "./announcer";
 import { settingsStore } from "./appSettings";
 
@@ -21,6 +23,7 @@ type Section =
   | "dashboard"
   | "device"
   | "wifi"
+  | "mirror"
   | "actions"
   | "processes"
   | "permissions"
@@ -31,12 +34,14 @@ type Section =
   | "backup"
   | "apps"
   | "notifications"
+  | "network"
   | "shell";
 
 const sections: { key: Section; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "device", label: "Device Info" },
   { key: "wifi", label: "WiFi ADB" },
+  { key: "mirror", label: "Screen Mirror" },
   { key: "actions", label: "Actions" },
   { key: "processes", label: "Process Manager" },
   { key: "permissions", label: "Permissions" },
@@ -47,6 +52,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "settings", label: "Settings" },
   { key: "backup", label: "Backup" },
   { key: "notifications", label: "Notifications" },
+  { key: "network", label: "Network" },
   { key: "shell", label: "Shell" },
 ];
 
@@ -166,6 +172,7 @@ function App() {
 
         {activeSection === "device" && <DeviceInfo />}
         {activeSection === "wifi" && <WifiConnection />}
+        {activeSection === "mirror" && <ScreenMirror />}
         {activeSection === "actions" && <DeviceActions />}
         {activeSection === "processes" && <ProcessManager />}
         {activeSection === "permissions" && (
@@ -178,6 +185,7 @@ function App() {
         {activeSection === "settings" && <Settings />}
         {activeSection === "backup" && <BackupManager />}
         {activeSection === "notifications" && <NotificationManager />}
+        {activeSection === "network" && <NetworkInspector />}
         {activeSection === "shell" && <ShellSession />}
       </main>
 
