@@ -1,10 +1,11 @@
-import { BrowserWindow as e, app as t, dialog as n, ipcMain as r, shell as i } from "electron";
-import { exec as a, spawn as o } from "node:child_process";
-import { fileURLToPath as s } from "node:url";
-import c from "node:path";
-import { promisify as l } from "node:util";
+import { BrowserWindow as e, Menu as t, Tray as n, app as r, dialog as i, globalShortcut as a, ipcMain as o, nativeImage as s, shell as c } from "electron";
+import { exec as l, spawn as u } from "node:child_process";
+import { fileURLToPath as d } from "node:url";
+import f from "node:path";
+import { existsSync as p } from "node:fs";
+import { promisify as m } from "node:util";
 //#region electron/adbService.ts
-var u = l(a), d = class {
+var h = m(l), g = class {
 	deviceId;
 	constructor(e = {}) {
 		this.deviceId = e.deviceId ?? null;
@@ -15,7 +16,7 @@ var u = l(a), d = class {
 	async execute(e, t = 1e4) {
 		let n = this.resolveCommand(e).replace(/[&|<>$`]/g, "\\$&");
 		try {
-			let { stdout: e, stderr: r } = await u(n, { timeout: t });
+			let { stdout: e, stderr: r } = await h(n, { timeout: t });
 			return {
 				stdout: e,
 				stderr: r,
@@ -71,14 +72,20 @@ var u = l(a), d = class {
 		return this.execute(`shell am start -n ${e}/${n}`, 1e4);
 	}
 	async listProcesses() {
-		let e = await this.execute("shell ps -A -o USER,PID,NAME"), t = [], n = e.stdout.trim().split("\n");
+		let e = await this.execute("shell ps -A -o USER,PID,%CPU,%MEM,RSS,NAME"), t = [], n = e.stdout.trim().split("\n");
 		for (let e of n) {
 			let n = e.split(/\s+/);
-			n.length >= 3 && n[0] !== "USER" && t.push({
-				user: n[0],
-				pid: parseInt(n[1], 10),
-				name: n.slice(2).join(" ")
-			});
+			if (n.length >= 6 && n[0] !== "USER") {
+				let e = parseInt(n[4], 10), r = n[4] || "0";
+				isNaN(e) || (r = e >= 1048576 ? (e / 1048576).toFixed(1) + " GB" : e >= 1024 ? (e / 1024).toFixed(1) + " MB" : e + " KB"), t.push({
+					user: n[0],
+					pid: parseInt(n[1], 10),
+					cpu: parseFloat(n[2]) || 0,
+					mem: parseFloat(n[3]) || 0,
+					rss: r,
+					name: n.slice(5).join(" ")
+				});
+			}
 		}
 		return t;
 	}
@@ -209,32 +216,89 @@ var u = l(a), d = class {
 			exitCode: 1
 		};
 	}
+	async pair(e, t) {
+		return this.execute(`pair ${e} ${t}`, 3e4);
+	}
 };
-new d();
+new g();
 //#endregion
 //#region electron/main.ts
-var f = c.dirname(s(import.meta.url)), p = new d();
-process.env.APP_ROOT = c.join(f, "..");
-var m = process.env.VITE_DEV_SERVER_URL, h = c.join(process.env.APP_ROOT, "dist-electron"), g = c.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = m ? c.join(process.env.APP_ROOT, "public") : g;
-var _ = null, v = null;
-function y() {
-	_ = new e({
+var _ = f.dirname(d(import.meta.url)), v = new g();
+process.env.APP_ROOT = f.join(_, "..");
+var y = process.env.VITE_DEV_SERVER_URL, b = f.join(process.env.APP_ROOT, "dist-electron"), x = f.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = y ? f.join(process.env.APP_ROOT, "public") : x;
+var S = null, C = null, w = null, T = null, E = !1, D = {
+	minimizeToTray: !0,
+	globalHotkey: "Ctrl+Shift+H"
+}, O = f.join(process.resourcesPath || f.join(process.env.APP_ROOT, "electron", "resources"), "win64"), k = f.join(O, "scrcpy", "scrcpy.exe"), A = f.join(O, "scrcpy", "adb.exe");
+function j() {
+	return process.platform === "win32" && p(k);
+}
+function M() {
+	return j() ? k : "scrcpy";
+}
+function N() {
+	let e = { ...process.env };
+	return j() && (e.ADB = A), e;
+}
+function P() {
+	S = new e({
 		width: 1280,
 		height: 800,
 		minWidth: 800,
 		minHeight: 600,
-		icon: c.join(process.env.VITE_PUBLIC, "icon.svg"),
+		icon: f.join(process.env.VITE_PUBLIC, "icon.svg"),
 		backgroundColor: "#030712",
 		webPreferences: {
-			preload: c.join(f, "preload.mjs"),
+			preload: f.join(_, "preload.mjs"),
 			contextIsolation: !0,
 			nodeIntegration: !1
 		}
-	}), m ? _.loadURL(m) : _.loadFile(c.join(g, "index.html"));
+	}), y ? S.loadURL(y) : S.loadFile(f.join(x, "index.html")), S.on("close", (e) => {
+		E || D.minimizeToTray && (e.preventDefault(), S?.hide());
+	}), S.on("show", () => S?.focus()), F();
 }
-r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ deviceId: n }) : p).execute(t)), r.handle("adb:list-devices", async () => p.getConnectedDevices()), r.handle("adb:list-file-entries", async (e, { remotePath: t, deviceId: n }) => {
-	let r = await (n ? new d({ deviceId: n }) : p).listDirectory(t);
+function F() {
+	if (!S) return;
+	let e = f.join(process.env.VITE_PUBLIC ?? "", "icon.png"), i = s.createFromPath(e);
+	T = new n(i), T.setToolTip("ADB GUI"), T.setContextMenu(t.buildFromTemplate([
+		{
+			label: "Show",
+			click: () => {
+				S?.show(), S?.focus();
+			}
+		},
+		{
+			label: "Hide",
+			click: () => {
+				S?.hide();
+			}
+		},
+		{ type: "separator" },
+		{
+			label: "Settings",
+			click: () => {
+				S?.show(), S?.focus(), S?.webContents.send("navigate:section", "settings");
+			}
+		},
+		{ type: "separator" },
+		{
+			label: "Quit",
+			click: () => {
+				E = !0, r.quit();
+			}
+		}
+	])), T.on("click", () => {
+		S?.isVisible() ? S.hide() : (S?.show(), S?.focus());
+	});
+}
+function I(e) {
+	a.unregisterAll(), e && (a.register(e, () => {
+		S?.isVisible() ? S.hide() : (S?.show(), S?.focus());
+	}) || console.warn(`Failed to register global hotkey: ${e}`));
+}
+o.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new g({ deviceId: n }) : v).execute(t)), o.handle("adb:list-devices", async () => v.getConnectedDevices()), o.handle("adb:list-file-entries", async (e, { remotePath: t, deviceId: n }) => {
+	let r = await (n ? new g({ deviceId: n }) : v).listDirectory(t);
 	return r.exitCode === 0 ? {
 		error: null,
 		entries: r.stdout.split("\n").map((e) => e.trim()).filter((e) => e && !e.startsWith("total ")).map((e) => {
@@ -256,38 +320,38 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 		error: r.stderr || "Failed to list directory",
 		entries: []
 	};
-}), r.handle("adb:pull-file", async (e, { remotePath: t, deviceId: r }) => {
-	if (!_) return {
+}), o.handle("adb:pull-file", async (e, { remotePath: t, deviceId: n }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let i = c.basename(t), { canceled: a, filePath: o } = await n.showSaveDialog(_, {
+	let r = f.basename(t), { canceled: a, filePath: o } = await i.showSaveDialog(S, {
 		title: "Save pulled file",
-		defaultPath: i
+		defaultPath: r
 	});
 	return a || !o ? {
 		error: "cancelled",
 		exitCode: 1
 	} : {
-		...await (r ? new d({ deviceId: r }) : p).pull(t, o),
+		...await (n ? new g({ deviceId: n }) : v).pull(t, o),
 		localPath: o
 	};
-}), r.handle("adb:push-file", async (e, { remotePath: t, deviceId: r }) => {
-	if (!_) return {
+}), o.handle("adb:push-file", async (e, { remotePath: t, deviceId: n }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: i, filePaths: a } = await n.showOpenDialog(_, {
+	let { canceled: r, filePaths: a } = await i.showOpenDialog(S, {
 		title: "Select file(s) to push",
 		properties: ["openFile", "multiSelections"]
 	});
-	if (i || a.length === 0) return {
+	if (r || a.length === 0) return {
 		error: "cancelled",
 		exitCode: 1
 	};
-	let o = r ? new d({ deviceId: r }) : p, s = [];
+	let o = n ? new g({ deviceId: n }) : v, s = [];
 	for (let e of a) {
-		let n = c.basename(e), r = t.endsWith("/") ? t + n : t + "/" + n, i = await o.push(e, r);
+		let n = f.basename(e), r = t.endsWith("/") ? t + n : t + "/" + n, i = await o.push(e, r);
 		s.push({
 			file: e,
 			result: i
@@ -296,42 +360,42 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 	return {
 		success: s.every((e) => e.result.exitCode === 0),
 		results: s,
-		pushedFiles: s.map((e) => c.basename(e.file))
+		pushedFiles: s.map((e) => f.basename(e.file))
 	};
-}), r.handle("adb:logcat-start", async (e, { priority: t, buffer: n, tags: r, pid: i, deviceId: a }) => {
-	v &&= (v.kill(), null);
-	let s = [];
-	a && s.push("-s", a), s.push("logcat", "-v", "threadtime"), n && n !== "all" && s.push("-b", n), i && s.push("--pid", i), r ? s.push(...r.split(/\s+/).filter(Boolean)) : s.push(`*:${t || "I"}`);
-	let c = o("adb", s, { stdio: [
+}), o.handle("adb:logcat-start", async (e, { priority: t, buffer: n, tags: r, pid: i, deviceId: a }) => {
+	C &&= (C.kill(), null);
+	let o = [];
+	a && o.push("-s", a), o.push("logcat", "-v", "threadtime"), n && n !== "all" && o.push("-b", n), i && o.push("--pid", i), r ? o.push(...r.split(/\s+/).filter(Boolean)) : o.push(`*:${t || "I"}`);
+	let s = u("adb", o, { stdio: [
 		"ignore",
 		"pipe",
 		"pipe"
 	] });
-	v = c;
-	let l = "";
-	return c.stdout.on("data", (t) => {
-		l += t.toString();
-		let n = l.split("\n");
-		l = n.pop() || "";
+	C = s;
+	let c = "";
+	return s.stdout.on("data", (t) => {
+		c += t.toString();
+		let n = c.split("\n");
+		c = n.pop() || "";
 		for (let t of n) t.trim() && e.sender.send("adb:logcat-line", t);
-	}), c.stderr.on("data", (t) => {
+	}), s.stderr.on("data", (t) => {
 		e.sender.send("adb:logcat-line", `[stderr] ${t.toString().trim()}`);
-	}), c.on("close", () => {
-		v === c && (v = null);
-	}), c.on("error", (t) => {
-		e.sender.send("adb:logcat-line", `[error] ${t.message}`), v === c && (v = null);
+	}), s.on("close", () => {
+		C === s && (C = null);
+	}), s.on("error", (t) => {
+		e.sender.send("adb:logcat-line", `[error] ${t.message}`), C === s && (C = null);
 	}), { success: !0 };
-}), r.handle("adb:logcat-stop", async () => (v &&= (v.kill(), null), { success: !0 })), r.handle("adb:open-folder", async (e, { folderPath: t }) => {
+}), o.handle("adb:logcat-stop", async () => (C &&= (C.kill(), null), { success: !0 })), o.handle("adb:open-folder", async (e, { folderPath: t }) => {
 	try {
-		return await i.openPath(t), { success: !0 };
+		return await c.openPath(t), { success: !0 };
 	} catch (e) {
 		return {
 			success: !1,
 			error: e instanceof Error ? e.message : "Failed to open folder"
 		};
 	}
-}), r.handle("adb:device-info", async (e, { deviceId: t }) => {
-	let n = t ? new d({ deviceId: t }) : p, [r, i, a, o, s] = await Promise.all([
+}), o.handle("adb:device-info", async (e, { deviceId: t }) => {
+	let n = t ? new g({ deviceId: t }) : v, [r, i, a, o, s] = await Promise.all([
 		n.getDeviceInfo(),
 		n.getScreenInfo(),
 		n.getBatteryInfo(),
@@ -345,12 +409,12 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 		storage: o,
 		network: s
 	};
-}), r.handle("adb:screenshot", async (e, { deviceId: t }) => {
-	if (!_) return {
+}), o.handle("adb:screenshot", async (e, { deviceId: t }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: r, filePath: i } = await n.showSaveDialog(_, {
+	let { canceled: n, filePath: r } = await i.showSaveDialog(S, {
 		title: "Save Screenshot",
 		defaultPath: `screenshot_${Date.now()}.png`,
 		filters: [{
@@ -358,19 +422,19 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 			extensions: ["png"]
 		}]
 	});
-	return r || !i ? {
+	return n || !r ? {
 		error: "cancelled",
 		exitCode: 1
 	} : {
-		...await (t ? new d({ deviceId: t }) : p).screenshot(i),
-		localPath: i
+		...await (t ? new g({ deviceId: t }) : v).screenshot(r),
+		localPath: r
 	};
-}), r.handle("adb:screenrecord", async (e, { timeLimit: t, deviceId: r }) => {
-	if (!_) return {
+}), o.handle("adb:screenrecord", async (e, { timeLimit: t, deviceId: n }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: i, filePath: a } = await n.showSaveDialog(_, {
+	let { canceled: r, filePath: a } = await i.showSaveDialog(S, {
 		title: "Save Screen Recording",
 		defaultPath: `recording_${Date.now()}.mp4`,
 		filters: [{
@@ -378,41 +442,57 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 			extensions: ["mp4"]
 		}]
 	});
-	return i || !a ? {
+	return r || !a ? {
 		error: "cancelled",
 		exitCode: 1
 	} : {
-		...await (r ? new d({ deviceId: r }) : p).screenrecord(a, t || 10),
+		...await (n ? new g({ deviceId: n }) : v).screenrecord(a, t || 10),
 		localPath: a
 	};
-}), r.handle("adb:install-apk", async (e, { deviceId: t }) => {
-	if (!_) return {
+}), o.handle("adb:install-apk", async (e, { deviceId: t }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: r, filePaths: i } = await n.showOpenDialog(_, {
-		title: "Select APK to install",
+	let { canceled: n, filePaths: r } = await i.showOpenDialog(S, {
+		title: "Select APK(s) to install",
 		filters: [{
 			name: "APK files",
 			extensions: ["apk"]
 		}],
-		properties: ["openFile"]
+		properties: ["openFile", "multiSelections"]
 	});
-	if (r || i.length === 0) return {
+	if (n || r.length === 0) return {
 		error: "cancelled",
 		exitCode: 1
 	};
-	let a = i[0];
+	let a = t ? new g({ deviceId: t }) : v, o = [];
+	for (let e of r) {
+		let t = await a.execute(`install -r "${e}"`, 12e4);
+		o.push({
+			file: e,
+			result: t
+		});
+	}
 	return {
-		...await (t ? new d({ deviceId: t }) : p).execute(`install -r "${a}"`, 12e4),
-		apkPath: a
+		success: o.every((e) => e.result.exitCode === 0),
+		results: o.map((e) => ({
+			file: e.file,
+			exitCode: e.result.exitCode,
+			stderr: e.result.stderr
+		})),
+		installedFiles: o.filter((e) => e.result.exitCode === 0).map((e) => e.file),
+		failedFiles: o.filter((e) => e.result.exitCode !== 0).map((e) => ({
+			file: e.file,
+			error: e.result.stderr
+		}))
 	};
-}), r.handle("adb:backup-apps", async (e, { packages: t, deviceId: r }) => {
-	if (!_) return {
+}), o.handle("adb:backup-apps", async (e, { packages: t, deviceId: n }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: i, filePath: a } = await n.showSaveDialog(_, {
+	let { canceled: r, filePath: a } = await i.showSaveDialog(S, {
 		title: "Save Backup File",
 		defaultPath: `adb_backup_${Date.now()}.ab`,
 		filters: [{
@@ -420,21 +500,21 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 			extensions: ["ab"]
 		}]
 	});
-	if (i || !a) return {
+	if (r || !a) return {
 		error: "cancelled",
 		exitCode: 1
 	};
-	let o = r ? new d({ deviceId: r }) : p, s = t.map((e) => `"${e}"`).join(" ");
+	let o = n ? new g({ deviceId: n }) : v, s = t.map((e) => `"${e}"`).join(" ");
 	return {
 		...await o.execute(`backup -f "${a}" -noapk ${s}`, 12e4),
 		localPath: a
 	};
-}), r.handle("adb:get-app-info", async (e, { packageName: t, deviceId: n }) => (n ? new d({ deviceId: n }) : p).getAppInfo(t)), r.handle("adb:clear-app-data", async (e, { packageName: t, deviceId: n }) => (n ? new d({ deviceId: n }) : p).clearAppData(t)), r.handle("adb:uninstall-app", async (e, { packageName: t, deviceId: n }) => (n ? new d({ deviceId: n }) : p).uninstallApp(t)), r.handle("adb:toggle-app", async (e, { packageName: t, enable: n, deviceId: r }) => (r ? new d({ deviceId: r }) : p).toggleApp(t, n)), r.handle("adb:export-apk", async (e, { packageName: t, deviceId: r }) => {
-	if (!_) return {
+}), o.handle("adb:get-app-info", async (e, { packageName: t, deviceId: n }) => (n ? new g({ deviceId: n }) : v).getAppInfo(t)), o.handle("adb:clear-app-data", async (e, { packageName: t, deviceId: n }) => (n ? new g({ deviceId: n }) : v).clearAppData(t)), o.handle("adb:uninstall-app", async (e, { packageName: t, deviceId: n }) => (n ? new g({ deviceId: n }) : v).uninstallApp(t)), o.handle("adb:toggle-app", async (e, { packageName: t, enable: n, deviceId: r }) => (r ? new g({ deviceId: r }) : v).toggleApp(t, n)), o.handle("adb:export-apk", async (e, { packageName: t, deviceId: n }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: i, filePath: a } = await n.showSaveDialog(_, {
+	let { canceled: r, filePath: a } = await i.showSaveDialog(S, {
 		title: "Save APK",
 		defaultPath: `${t}.apk`,
 		filters: [{
@@ -442,19 +522,19 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 			extensions: ["apk"]
 		}]
 	});
-	return i || !a ? {
+	return r || !a ? {
 		error: "cancelled",
 		exitCode: 1
 	} : {
-		...await (r ? new d({ deviceId: r }) : p).exportApk(t, a),
+		...await (n ? new g({ deviceId: n }) : v).exportApk(t, a),
 		localPath: a
 	};
-}), r.handle("adb:export-logcat", async (e, { lines: t }) => {
-	if (!_) return {
+}), o.handle("adb:export-logcat", async (e, { lines: t }) => {
+	if (!S) return {
 		error: "No window",
 		exitCode: 1
 	};
-	let { canceled: r, filePath: i } = await n.showSaveDialog(_, {
+	let { canceled: n, filePath: r } = await i.showSaveDialog(S, {
 		title: "Export Logcat",
 		defaultPath: `logcat_${Date.now()}.txt`,
 		filters: [{
@@ -462,17 +542,87 @@ r.handle("adb:execute", async (e, { cmd: t, deviceId: n }) => (n ? new d({ devic
 			extensions: ["txt", "log"]
 		}]
 	});
-	return r || !i ? {
+	return n || !r ? {
 		error: "cancelled",
 		exitCode: 1
-	} : (await (await import("node:fs/promises")).writeFile(i, t, "utf-8"), {
+	} : (await (await import("node:fs/promises")).writeFile(r, t, "utf-8"), {
 		success: !0,
-		localPath: i
+		localPath: r
 	});
-}), t.on("window-all-closed", () => {
-	v &&= (v.kill(), null), process.platform !== "darwin" && (t.quit(), _ = null);
-}), t.on("activate", () => {
-	e.getAllWindows().length === 0 && y();
-}), t.whenReady().then(y);
+}), o.handle("adb:pair", async (e, t, n) => v.pair(t, n)), o.handle("window:show", async () => (S?.show(), S?.focus(), {})), o.handle("window:hide", async () => (S?.hide(), {})), o.handle("window:save-settings", async (e, t) => (D = t, I(t.globalHotkey), { success: !0 })), o.handle("window:navigate", async (e, t) => (S?.webContents.send("navigate:section", t), { success: !0 })), o.handle("adb:start-mirror", async (e, { bitrate: t, maxSize: n, fps: r, control: i }) => {
+	w &&= (w.kill(), null);
+	try {
+		let e = M();
+		if (!await new Promise((t) => {
+			let n = u(e, ["--version"], {
+				stdio: [
+					"ignore",
+					"pipe",
+					"pipe"
+				],
+				env: N()
+			}), r = !1;
+			n.on("error", () => {
+				r || (r = !0, t(!1));
+			}), n.on("close", () => {
+				r || (r = !0, t(!0));
+			}), setTimeout(() => {
+				r || (r = !0, n.kill(), t(!1));
+			}, 5e3);
+		})) return {
+			success: !1,
+			error: j() ? "scrcpy is bundled but failed to start" : "scrcpy not found. Install it from https://github.com/Genymobile/scrcpy"
+		};
+		let a = [
+			"--video-bit-rate",
+			`${t}M`,
+			"--max-size",
+			`${n}`,
+			"--max-fps",
+			`${r}`,
+			...i ? [] : ["--no-control"]
+		];
+		w = u(e, a, {
+			stdio: [
+				"ignore",
+				"ignore",
+				"pipe"
+			],
+			detached: !0,
+			env: N()
+		});
+		let o = w, s = "";
+		return o.stderr?.on("data", (e) => {
+			s += e.toString();
+		}), new Promise((e) => {
+			let t = !1, n = (n) => {
+				t || (t = !0, w = null, e({
+					success: !1,
+					error: n
+				}));
+			};
+			o.on("error", (e) => {
+				n(e.message);
+			}), o.on("exit", () => {
+				n(s.trim() || "scrcpy exited unexpectedly (is a device connected?)");
+			}), setTimeout(() => {
+				t || (t = !0, e({ success: !0 }));
+			}, 2e3);
+		});
+	} catch (e) {
+		return {
+			success: !1,
+			error: e instanceof Error ? e.message : "Failed to start scrcpy"
+		};
+	}
+}), o.handle("adb:stop-mirror", async () => (w &&= (w.kill(), null), { success: !0 })), r.on("before-quit", () => {
+	E = !0;
+}), r.on("window-all-closed", () => {
+	C &&= (C.kill(), null), process.platform !== "darwin" && (r.quit(), S = null);
+}), r.on("activate", () => {
+	e.getAllWindows().length === 0 && P();
+}), r.whenReady().then(() => {
+	P(), I(D.globalHotkey);
+});
 //#endregion
-export { h as MAIN_DIST, g as RENDERER_DIST, m as VITE_DEV_SERVER_URL };
+export { b as MAIN_DIST, x as RENDERER_DIST, y as VITE_DEV_SERVER_URL };
