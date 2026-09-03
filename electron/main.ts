@@ -662,7 +662,7 @@ ipcMain.handle(
       }
 
       const args = [
-        "--bit-rate",
+        "--video-bit-rate",
         `${bitrate}M`,
         "--max-size",
         `${maxSize}`,
