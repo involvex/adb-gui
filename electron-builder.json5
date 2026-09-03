@@ -8,6 +8,13 @@
     output: "release/${version}",
   },
   files: ["dist", "dist-electron"],
+  extraFiles: [
+    {
+      from: "electron/resources/win64",
+      to: "win64",
+      filter: ["**/*"],
+    },
+  ],
   mac: {
     icon: "public/icon.ico",
     target: ["dmg"],

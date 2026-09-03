@@ -12,6 +12,7 @@ import {
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { AdbService, type AdbResult } from "./adbService";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,33 @@ let currentWindowSettings: WindowSettings = {
   minimizeToTray: true,
   globalHotkey: "Ctrl+Shift+H",
 };
+
+const SCRCPY_RESOURCES_DIR = path.join(
+  process.resourcesPath ||
+    path.join(process.env.APP_ROOT, "electron", "resources"),
+  "win64",
+);
+const SCRCPY_BIN = path.join(SCRCPY_RESOURCES_DIR, "scrcpy", "scrcpy.exe");
+const ADB_BIN = path.join(SCRCPY_RESOURCES_DIR, "scrcpy", "adb.exe");
+
+function useBundledScrcpy(): boolean {
+  return process.platform === "win32" && existsSync(SCRCPY_BIN);
+}
+
+function getScrcpyCommand(): string {
+  if (useBundledScrcpy()) {
+    return SCRCPY_BIN;
+  }
+  return "scrcpy";
+}
+
+function getScrcpyEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  if (useBundledScrcpy()) {
+    env.ADB = ADB_BIN;
+  }
+  return env;
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -627,9 +655,11 @@ ipcMain.handle(
     }
 
     try {
+      const scrcpyCmd = getScrcpyCommand();
       const isInstalled = await new Promise<boolean>((resolve) => {
-        const check = spawn("scrcpy", ["--version"], {
+        const check = spawn(scrcpyCmd, ["--version"], {
           stdio: ["ignore", "pipe", "pipe"],
+          env: getScrcpyEnv(),
         });
         let done = false;
         check.on("error", () => {
@@ -656,8 +686,9 @@ ipcMain.handle(
       if (!isInstalled) {
         return {
           success: false,
-          error:
-            "scrcpy not found. Install it from https://github.com/Genymobile/scrcpy",
+          error: useBundledScrcpy()
+            ? "scrcpy is bundled but failed to start"
+            : "scrcpy not found. Install it from https://github.com/Genymobile/scrcpy",
         };
       }
 
@@ -671,9 +702,10 @@ ipcMain.handle(
         ...(control ? [] : ["--no-control"]),
       ];
 
-      mirrorProcess = spawn("scrcpy", args, {
+      mirrorProcess = spawn(scrcpyCmd, args, {
         stdio: ["ignore", "ignore", "pipe"],
         detached: true,
+        env: getScrcpyEnv(),
       });
 
       const proc = mirrorProcess;
