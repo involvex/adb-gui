@@ -1,12 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { adbService } from "../adbService";
 
-interface AdbResult {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-}
-
 interface BackupResult {
   stdout: string;
   stderr: string;
@@ -36,9 +30,21 @@ const BackupManager: React.FC = () => {
     try {
       const pkgList = await adbService.listThirdPartyPackages();
       const withLabels: PackageInfo[] = [];
-      for (const pkg of pkgList) {
-        const label = await getPackageLabel(pkg);
-        withLabels.push({ name: pkg, label: label || pkg });
+      // Load labels in parallel with concurrency limit to avoid overwhelming device
+      const batchSize = 10;
+      for (let i = 0; i < pkgList.length; i += batchSize) {
+        const batch = pkgList.slice(i, i + batchSize);
+        const results = await Promise.all(
+          batch.map(async (pkg) => {
+            try {
+              const info = await adbService.getAppInfo(pkg);
+              return { name: pkg, label: info.label || pkg };
+            } catch {
+              return { name: pkg, label: pkg };
+            }
+          }),
+        );
+        withLabels.push(...results);
       }
       setPackages(withLabels);
       setFilteredPackages(withLabels);
@@ -68,18 +74,6 @@ const BackupManager: React.FC = () => {
       );
     }
   }, [searchTerm, packages]);
-
-  async function getPackageLabel(pkg: string): Promise<string> {
-    try {
-      const result: AdbResult = await adbService.execute(
-        `shell pm dump ${pkg} | grep -m1 "application-label:"`,
-      );
-      const match = result.stdout.match(/application-label:"([^"]+)"/);
-      return match ? match[1] : "";
-    } catch {
-      return "";
-    }
-  }
 
   const toggleSelection = (pkg: string) => {
     const newSelected = new Set(selected);

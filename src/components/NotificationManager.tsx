@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
+import { adbService } from "../adbService";
 
 interface Notification {
-  id: number;
+  id: string | number;
   packageName: string;
   title: string;
   text: string;
@@ -11,6 +12,20 @@ interface Notification {
 
 interface NotificationManagerProps {
   onStatusChange?: (status: string | null) => void;
+}
+
+/**
+ * `dumpsys notification --noredact` renders text/title values as
+ * `String(...)` or `Parceable(...)`. Strip the wrapper so the UI shows the
+ * human-readable value.
+ */
+function normalizeExtras(raw: string): string {
+  const trimmed = raw.trim();
+  const inner = trimmed
+    .replace(/^String\s*\(/, "")
+    .replace(/\)$/, "")
+    .trim();
+  return inner || trimmed;
 }
 
 function NotificationManager({ onStatusChange }: NotificationManagerProps) {
@@ -24,34 +39,44 @@ function NotificationManager({ onStatusChange }: NotificationManagerProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await window.adb.execute(
-        "dumpsys notification --noredact",
+      const result = await adbService.execute(
+        "shell dumpsys notification --noredact",
       );
       if (result.exitCode === 0) {
         const lines = result.stdout.split("\n");
         const parsed: Notification[] = [];
         let current: Partial<Notification> | null = null;
+        let idCounter = 0;
 
         for (const line of lines) {
           if (line.includes("NotificationRecord(")) {
             if (current && current.packageName) {
-              parsed.push(current as Notification);
+              parsed.push({
+                id: idCounter++,
+                packageName: current.packageName,
+                title: current.title || "(no title)",
+                text: current.text || "",
+                priority: current.priority || "0",
+                when: current.when || "",
+              } as Notification);
             }
             current = {};
             const pkgMatch = line.match(/pkg=(\S+)/);
             if (pkgMatch) current.packageName = pkgMatch[1];
           }
           if (current) {
-            if (line.includes("mTitle=")) {
-              const titleMatch = line.match(/mTitle=(.+)/);
-              if (titleMatch) current.title = titleMatch[1].trim();
+            if (line.includes("mTitle=") || line.includes("android.title=")) {
+              const titleMatch = line.match(
+                /(?:mTitle|android\.title)=([^\n]+)/,
+              );
+              if (titleMatch) current.title = normalizeExtras(titleMatch[1]);
             }
-            if (line.includes("mText=")) {
-              const textMatch = line.match(/mText=(.+)/);
-              if (textMatch) current.text = textMatch[1].trim();
+            if (line.includes("mText=") || line.includes("android.text=")) {
+              const textMatch = line.match(/(?:mText|android\.text)=([^\n]+)/);
+              if (textMatch) current.text = normalizeExtras(textMatch[1]);
             }
             if (line.includes("priority=")) {
-              const priMatch = line.match(/priority=(\d+)/);
+              const priMatch = line.match(/priority=(-?\d+)/);
               if (priMatch) current.priority = priMatch[1];
             }
             if (line.includes("when=")) {
@@ -61,11 +86,18 @@ function NotificationManager({ onStatusChange }: NotificationManagerProps) {
           }
         }
         if (current && current.packageName) {
-          parsed.push(current as Notification);
+          parsed.push({
+            id: idCounter++,
+            packageName: current.packageName,
+            title: current.title || "(no title)",
+            text: current.text || "",
+            priority: current.priority || "0",
+            when: current.when || "",
+          } as Notification);
         }
         setNotifications(parsed);
       } else {
-        setError("Failed to dump notifications");
+        setError(result.stderr || "Failed to dump notifications");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -79,8 +111,8 @@ function NotificationManager({ onStatusChange }: NotificationManagerProps) {
       setClearing(true);
       onStatusChange?.(`Clearing notifications for ${pkg}...`);
       try {
-        await window.adb.execute(
-          `cmd notification cancel --package ${pkg} all`,
+        await adbService.execute(
+          `shell cmd notification cancel --package ${pkg} all`,
         );
         await loadNotifications();
         onStatusChange?.(`Cleared notifications for ${pkg}`);
@@ -99,8 +131,8 @@ function NotificationManager({ onStatusChange }: NotificationManagerProps) {
     onStatusChange?.("Clearing all notifications...");
     try {
       for (const pkg of [...new Set(notifications.map((n) => n.packageName))]) {
-        await window.adb.execute(
-          `cmd notification cancel --package ${pkg} all`,
+        await adbService.execute(
+          `shell cmd notification cancel --package ${pkg} all`,
         );
       }
       await loadNotifications();

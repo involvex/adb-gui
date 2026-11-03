@@ -181,6 +181,38 @@ contextBridge.exposeInMainWorld("adb", {
     });
   },
 
+  getForegroundActivity(
+    deviceId?: string,
+  ): Promise<{ package: string; activity: string }> {
+    return ipcRenderer.invoke("adb:get-foreground-activity", { deviceId });
+  },
+
+  getActivitiesForPackage(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<string[]> {
+    return ipcRenderer.invoke("adb:get-activities-for-package", {
+      packageName,
+      deviceId,
+    });
+  },
+
+  launchActivity(
+    packageName: string,
+    activityName: string,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return ipcRenderer.invoke("adb:launch-activity", {
+      packageName,
+      activityName,
+      deviceId,
+    });
+  },
+
+  listThirdPartyPackages(deviceId?: string): Promise<string[]> {
+    return ipcRenderer.invoke("adb:list-third-party-packages", { deviceId });
+  },
+
   exportApk(
     packageName: string,
     deviceId?: string,

@@ -2,8 +2,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { adbService } from "../adbService";
 import { quickCommandsStore, type QuickCommand } from "../electronStore";
 import { settingsStore } from "../appSettings";
+import { toast } from "react-hot-toast";
 
-const QuickCommands: React.FC = () => {
+interface QuickCommandsProps {
+  compact?: boolean;
+}
+
+const QuickCommands: React.FC<QuickCommandsProps> = ({ compact = false }) => {
   const [commands, setCommands] = useState<QuickCommand[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,9 +83,18 @@ const QuickCommands: React.FC = () => {
 
   const executeCommand = async (finalCmd: string) => {
     try {
-      await adbService.execute(finalCmd);
-    } catch {
-      setError(`Failed to execute command`);
+      const result = await adbService.execute(finalCmd);
+      if (result.exitCode === 0) {
+        toast.success("Command executed");
+      } else {
+        const detail = (result.stderr || result.stdout || "").trim();
+        toast.error(detail ? `Failed: ${detail}` : "Command failed");
+      }
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to execute command";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -233,46 +247,57 @@ const QuickCommands: React.FC = () => {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-gray-100">Quick Commands</h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
-          >
-            Export
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
-          >
-            Import
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={handleReset}
-            className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800"
-          >
-            + Add
-          </button>
+      {!compact && (
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-100">
+            Quick Commands
+          </h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+            >
+              Import
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={handleReset}
+              className="bg-gray-700 text-gray-300 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm"
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="bg-blue-900/30 text-blue-300 px-3 py-1 rounded hover:bg-blue-900/50 transition-colors text-sm font-medium border border-blue-800"
+            >
+              + Add
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+      {compact && (
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-gray-100">
+            Quick Commands
+          </h2>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-900/20 border border-red-800 text-red-400 p-2 rounded mb-3 text-sm">
@@ -293,35 +318,41 @@ const QuickCommands: React.FC = () => {
       )}
 
       {!loading && commands.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div
+          className={`flex flex-wrap gap-2 ${compact ? "max-h-40 overflow-y-auto" : ""}`}
+        >
           {commands.map((cmd) => (
             <div
               key={cmd.id}
-              className="group bg-gray-800 border border-gray-700 rounded px-3 py-1.5 flex items-center gap-2"
+              className={`group bg-gray-800 border border-gray-700 rounded px-3 py-1.5 flex items-center gap-2 ${compact ? "hover:bg-gray-700" : ""}`}
             >
               <button
                 type="button"
                 onClick={() => openPromptModal(cmd)}
-                className="text-gray-200 hover:text-gray-100 text-sm font-medium"
+                className={`text-gray-200 hover:text-gray-100 ${compact ? "text-xs" : "text-sm"} font-medium`}
                 title={cmd.description}
               >
                 <span className="mr-1">{cmd.icon}</span>
                 {cmd.title}
               </button>
-              <button
-                type="button"
-                onClick={() => openEditModal(cmd)}
-                className="text-gray-500 hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(cmd.id)}
-                className="text-gray-500 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                Del
-              </button>
+              {!compact && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(cmd)}
+                    className="text-gray-500 hover:text-gray-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(cmd.id)}
+                    className="text-gray-500 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Del
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

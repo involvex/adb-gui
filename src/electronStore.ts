@@ -11,21 +11,21 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
   {
     id: "list-packages",
     title: "List Packages",
-    command: "pm list packages",
+    command: "shell pm list packages",
     description: "List all installed packages",
     icon: "📦",
   },
   {
     id: "list-perms",
     title: "List Permissions",
-    command: "pm list permissions",
+    command: "shell pm list permissions",
     description: "List all permissions for a package",
     icon: "🔐",
   },
   {
     id: "grant-perm",
     title: "Grant Permission",
-    command: "pm grant <package> --user 0 --all-permissions",
+    command: "shell pm grant <package> --user 0 --all-permissions",
     description: "Grant all permissions to a package",
     icon: "✅",
     placeholderLabels: [{ name: "package", hint: "e.g., com.example.app" }],
@@ -83,6 +83,23 @@ const DEFAULT_COMMANDS: QuickCommand[] = [
     command: "reboot",
     description: "Reboot the connected device",
     icon: "🔄",
+  },
+  {
+    id: "foreground-activity",
+    title: "Foreground Activity",
+    command: "shell dumpsys activity top -n 1",
+    description: "Show the current foreground activity",
+    icon: "📱",
+  },
+  {
+    id: "foreground-app-activities",
+    title: "Foreground App Activities",
+    // The pipeline runs on the *device* (quoted for adb shell) because the
+    // Windows host has no grep executable.
+    command:
+      'shell "dumpsys activity activities | grep -A 30 mResumedActivity"',
+    description: "Show activities info for foreground app",
+    icon: "📋",
   },
 ];
 

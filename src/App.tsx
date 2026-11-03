@@ -12,6 +12,7 @@ import Settings from "./components/Settings";
 import WifiConnection from "./components/WifiConnection";
 import BackupManager from "./components/BackupManager";
 import AppManager from "./components/AppManager";
+import AppActivitySelector from "./components/AppActivitySelector";
 import NotificationManager from "./components/NotificationManager";
 import ShellSession from "./components/ShellSession";
 import NetworkInspector from "./components/NetworkInspector";
@@ -19,6 +20,9 @@ import ScreenMirror from "./components/ScreenMirror";
 import { useAnnouncer } from "./announcer";
 import { settingsStore } from "./appSettings";
 import { onNavigateSection } from "./windowControl";
+import { Provider } from "react-redux";
+import { Toaster } from "react-hot-toast";
+import store from "./store";
 
 type Section =
   | "dashboard"
@@ -34,6 +38,7 @@ type Section =
   | "settings"
   | "backup"
   | "apps"
+  | "apps-activities"
   | "notifications"
   | "network"
   | "shell";
@@ -47,6 +52,7 @@ const sections: { key: Section; label: string }[] = [
   { key: "processes", label: "Process Manager" },
   { key: "permissions", label: "Permissions" },
   { key: "apps", label: "Apps" },
+  { key: "apps-activities", label: "App Activities" },
   { key: "files", label: "File Explorer" },
   { key: "quick", label: "Quick Commands" },
   { key: "logcat", label: "Logcat" },
@@ -132,77 +138,83 @@ function App() {
   }, [handleKeyDown]);
 
   return (
-    <div
-      className={`flex flex-col h-screen bg-gray-950 text-gray-100 ${highContrast ? "high-contrast" : ""}`}
-    >
-      <TopBar />
+    <>
+      <Provider store={store}>
+        <div
+          className={`flex flex-col h-screen bg-gray-950 text-gray-100 ${highContrast ? "high-contrast" : ""}`}
+        >
+          <TopBar />
 
-      <nav className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex gap-2 flex-wrap">
-        {sections.map((s, i) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => handleTabChange(s.key)}
-            role="tab"
-            aria-selected={activeSection === s.key}
-            tabIndex={activeSection === s.key ? 0 : -1}
-            title={`${s.label} (Alt+${i + 1})`}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              activeSection === s.key
-                ? "bg-gray-700 text-gray-100"
-                : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-            }`}
-          >
-            {s.label}
-            {s.key === "permissions" &&
-              packageCount !== null &&
-              packageCount > 0 && (
-                <span className="ml-1.5 bg-blue-900/50 text-blue-300 text-xs px-1.5 py-0.5 rounded-full">
-                  {packageCount}
-                </span>
-              )}
-          </button>
-        ))}
-      </nav>
+          <nav className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex gap-2 flex-wrap">
+            {sections.map((s, i) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => handleTabChange(s.key)}
+                role="tab"
+                aria-selected={activeSection === s.key}
+                tabIndex={activeSection === s.key ? 0 : -1}
+                title={`${s.label} (Alt+${i + 1})`}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                  activeSection === s.key
+                    ? "bg-gray-700 text-gray-100"
+                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                }`}
+              >
+                {s.label}
+                {s.key === "permissions" &&
+                  packageCount !== null &&
+                  packageCount > 0 && (
+                    <span className="ml-1.5 bg-blue-900/50 text-blue-300 text-xs px-1.5 py-0.5 rounded-full">
+                      {packageCount}
+                    </span>
+                  )}
+              </button>
+            ))}
+          </nav>
 
-      <main className="flex-1 overflow-auto p-6 bg-gray-950">
-        {activeSection === "dashboard" && (
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <ProcessManager />
-              <PermissionManager />
-              <FileExplorer />
-              <QuickCommands />
-            </div>
-            <LogcatViewer />
-          </div>
-        )}
+          <main className="flex-1 overflow-auto p-6 bg-gray-950">
+            {activeSection === "dashboard" && (
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <ProcessManager />
+                  <PermissionManager />
+                  <FileExplorer />
+                  <QuickCommands compact />
+                </div>
+                <LogcatViewer />
+              </div>
+            )}
 
-        {activeSection === "device" && <DeviceInfo />}
-        {activeSection === "wifi" && <WifiConnection />}
-        {activeSection === "mirror" && <ScreenMirror />}
-        {activeSection === "actions" && <DeviceActions />}
-        {activeSection === "processes" && <ProcessManager />}
-        {activeSection === "permissions" && (
-          <PermissionManager onCountChange={setPackageCount} />
-        )}
-        {activeSection === "apps" && <AppManager />}
-        {activeSection === "files" && <FileExplorer />}
-        {activeSection === "quick" && <QuickCommands />}
-        {activeSection === "logcat" && <LogcatViewer />}
-        {activeSection === "settings" && <Settings />}
-        {activeSection === "backup" && <BackupManager />}
-        {activeSection === "notifications" && <NotificationManager />}
-        {activeSection === "network" && <NetworkInspector />}
-        {activeSection === "shell" && <ShellSession />}
-      </main>
+            {activeSection === "device" && <DeviceInfo />}
+            {activeSection === "wifi" && <WifiConnection />}
+            {activeSection === "mirror" && <ScreenMirror />}
+            {activeSection === "actions" && <DeviceActions />}
+            {activeSection === "processes" && <ProcessManager />}
+            {activeSection === "permissions" && (
+              <PermissionManager onCountChange={setPackageCount} />
+            )}
+            {activeSection === "apps" && <AppManager />}
+            {activeSection === "apps-activities" && <AppActivitySelector />}
+            {activeSection === "files" && <FileExplorer />}
+            {activeSection === "quick" && <QuickCommands />}
+            {activeSection === "logcat" && <LogcatViewer />}
+            {activeSection === "settings" && <Settings />}
+            {activeSection === "backup" && <BackupManager />}
+            {activeSection === "notifications" && <NotificationManager />}
+            {activeSection === "network" && <NetworkInspector />}
+            {activeSection === "shell" && <ShellSession />}
+          </main>
 
-      <CommandBar />
+          <CommandBar />
 
-      <footer className="bg-gray-900 border-t border-gray-800 px-4 py-2 text-gray-500 text-xs">
-        ADB GUI v0.0.0
-      </footer>
-    </div>
+          <footer className="bg-gray-900 border-t border-gray-800 px-4 py-2 text-gray-500 text-xs">
+            ADB GUI v0.0.0
+          </footer>
+        </div>
+      </Provider>
+      <Toaster position="bottom-right" toastOptions={{ duration: 2500 }} />
+    </>
   );
 }
 

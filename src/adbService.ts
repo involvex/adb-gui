@@ -9,12 +9,13 @@ interface FileEntry {
   date: string;
 }
 
-interface AdbWindow {
+export interface AdbWindow {
   execute(
     cmd: string,
     deviceId?: string,
   ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   listDevices(): Promise<string[]>;
+  listThirdPartyPackages(deviceId?: string): Promise<string[]>;
   listFileEntries(
     remotePath: string,
     deviceId?: string,
@@ -109,6 +110,18 @@ interface AdbWindow {
   toggleApp(
     packageName: string,
     enable: boolean,
+    deviceId?: string,
+  ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
+  getForegroundActivity(
+    deviceId?: string,
+  ): Promise<{ package: string; activity: string }>;
+  getActivitiesForPackage(
+    packageName: string,
+    deviceId?: string,
+  ): Promise<string[]>;
+  launchActivity(
+    packageName: string,
+    activityName: string,
     deviceId?: string,
   ): Promise<{ stdout: string; stderr: string; exitCode: number }>;
   exportApk(
@@ -220,29 +233,30 @@ async function listPermissions(packageName: string): Promise<string[]> {
 }
 
 async function listActivities(packageName: string): Promise<string[]> {
-  const result = await execute(`shell dumpsys package ${packageName}`);
-  const activityRe = /^\s+[0-9a-f]+\s+(\S+)\s+filter\s+[0-9a-f]+/gm;
-  const activities = new Set<string>();
-  const matches = result.stdout.matchAll(activityRe);
-  for (const m of matches) {
-    const component = m[1];
-    if (!component) continue;
-    const idx = component.indexOf("/");
-    if (idx !== -1) {
-      activities.add(component.slice(idx + 1));
-    }
-  }
-  return [...activities].sort();
+  // Parsing + validation live in the main process (AdbService.listActivities).
+  return adb.getActivitiesForPackage(packageName, currentDeviceId ?? undefined);
+}
+
+async function getForegroundActivity(): Promise<{
+  package: string;
+  activity: string;
+}> {
+  return adb.getForegroundActivity(currentDeviceId ?? undefined);
+}
+
+async function getActivitiesForPackage(packageName: string): Promise<string[]> {
+  return adb.getActivitiesForPackage(packageName, currentDeviceId ?? undefined);
 }
 
 async function launchActivity(
   packageName: string,
   activityName: string,
 ): Promise<AdbResult> {
-  const activity = activityName.startsWith(".")
-    ? activityName
-    : activityName.replace(packageName, "");
-  return execute(`shell am start -n ${packageName}/${activity}`);
+  return adb.launchActivity(
+    packageName,
+    activityName,
+    currentDeviceId ?? undefined,
+  );
 }
 
 async function listProcesses(): Promise<
@@ -529,6 +543,8 @@ export const adbService = {
   clearAppData,
   uninstallApp,
   toggleApp,
+  getForegroundActivity,
+  getActivitiesForPackage,
   exportApk,
   exportLogcat,
   pair,

@@ -3,6 +3,207 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
+export function isValidPackageName(pkg: string): boolean {
+  if (!pkg || typeof pkg !== "string") return false;
+  return (
+    /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$/.test(pkg) &&
+    pkg.length <= 255
+  );
+}
+
+/**
+ * Validate a value that is interpolated into a shell command as-is (package
+ * names, activity class names). Rejects anything that could escape the
+ * argument and inject additional shell commands.
+ */
+function assertSafeToken(value: string, label: string): string {
+  if (!value || typeof value !== "string") {
+    throw new Error(`Invalid ${label}`);
+  }
+  // Allow letters, digits, underscore, dot, dollar (Java inner classes) and the
+  // leading dot of Android short activity names.
+  if (!/^[a-zA-Z0-9_.$]+$/.test(value) || value.length > 255) {
+    throw new Error(`Invalid ${label}: ${value}`);
+  }
+  return value;
+}
+
+export function assertValidPackageName(pkg: string): string {
+  return assertSafeToken(pkg, "package name");
+}
+
+export function assertValidActivityName(activity: string): string {
+  return assertSafeToken(activity, "activity name");
+}
+
+/**
+ * ADB device serials / transport ids ("emulator-5554", "ip:port" wireless ids).
+ * Spaces are allowed because Windows mDNS de-duplicates colliding hostnames by
+ * appending " (2)" to them ("HOST (2)._adb-tls-connect._tcp").
+ */
+export function isValidDeviceId(id: string): boolean {
+  if (!id || typeof id !== "string") return false;
+  return (
+    /^[A-Za-z0-9 ._:()-]+$/.test(id) && id.trim().length > 0 && id.length <= 128
+  );
+}
+
+export function assertValidDeviceId(id: string): string {
+  if (!isValidDeviceId(id)) throw new Error(`Invalid device id: ${id}`);
+  return id;
+}
+
+/**
+ * Validate a path living on the device. Device paths never legitimately contain
+ * shell metacharacters or quotes, so reject them instead of attempting to
+ * escape (adb shells the string out verbatim).
+ */
+export function sanitizePath(p: string): string {
+  if (!p || typeof p !== "string") throw new Error("Invalid path");
+  if (/[;&|$()<>"'`\n\r]/.test(p)) {
+    throw new Error("Invalid path characters");
+  }
+  return p;
+}
+
+/**
+ * Quote an argument for the host shell (cmd.exe / sh). Double quotes protect
+ * spaces and parentheses; a value containing a quote or newline could break
+ * out of the quoting, so it is rejected.
+ */
+export function quoteArg(value: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("Invalid argument");
+  }
+  if (/["`\n\r]/.test(value)) {
+    throw new Error("Invalid characters in argument");
+  }
+  return `"${value}"`;
+}
+
+/**
+ * Escape shell metacharacters outside of double-quoted segments.
+ *
+ * Quoted arguments (device serials, host paths) are left byte-for-byte intact:
+ * cmd.exe does not treat `\` as an escape, so escaping a parenthesis that lives
+ * inside a quoted serial such as `"HOST (2)._adb-tls-connect._tcp"` would
+ * corrupt it. Characters outside quotes are escaped, which keeps untrusted
+ * tokens (package names, activity names) from breaking out of their argument.
+ */
+export function escapeUnquotedSpecials(cmd: string): string {
+  let out = "";
+  let inQuotes = false;
+  for (const ch of cmd) {
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      out += ch;
+      continue;
+    }
+    if (!inQuotes && /[&<>$`()]/.test(ch)) {
+      out += `\\${ch}`;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Extract launchable activity components from `dumpsys package <pkg>` output.
+ *
+ * Entries appear in the "Activity Resolver Table" section (also in the
+ * receiver/service/provider tables, which are ignored):
+ *
+ *   Activity Resolver Table:
+ *     Non-Data Actions:
+ *       android.intent.action.MAIN:
+ *         3f2a1b0 com.example/.MainActivity filter 3f2a1b0
+ *
+ * Entries registered under an `android.intent.action.MAIN` action are the
+ * launchable ones; if none are found we fall back to every resolver entry so
+ * packages with unusual manifests still list something usable.
+ */
+export function parseActivitiesFromDump(stdout: string): string[] {
+  const mainActivities = new Set<string>();
+  const otherActivities = new Set<string>();
+  let inActivityTable = false;
+  let inMainAction = false;
+
+  for (const line of stdout.split("\n")) {
+    if (/Resolver Table:/.test(line)) {
+      inActivityTable = line.includes("Activity Resolver Table");
+      inMainAction = false;
+      continue;
+    }
+    if (!inActivityTable) continue;
+
+    const action = line.match(/^\s+([a-zA-Z0-9_.]+:\s*$)/);
+    if (action) {
+      inMainAction = action[1].startsWith("android.intent.action.MAIN");
+      continue;
+    }
+
+    const entry = line.match(
+      /^\s+[0-9a-fA-F]+\s+(\S+)\/(\S+)\s+filter\s+[0-9a-fA-F]+/,
+    );
+    if (entry) {
+      if (inMainAction) mainActivities.add(entry[2]);
+      else otherActivities.add(entry[2]);
+    }
+  }
+
+  const activities = mainActivities.size > 0 ? mainActivities : otherActivities;
+  return [...activities].sort();
+}
+
+/**
+ * Normalise a package/activity pair into a value usable with `am start -n`.
+ *
+ * Accepts a short name (".MainActivity", resolved against the package), a
+ * fully-qualified class name, or an already-complete component.
+ */
+export function resolveActivityComponent(
+  packageName: string,
+  activityName: string,
+): string {
+  const activity = activityName.trim();
+  if (activity.startsWith(`${packageName}/`)) return activity;
+  if (activity.startsWith(".")) return `${packageName}/${activity}`;
+  // A class name that already starts with the package is fully qualified.
+  if (activity.startsWith(`${packageName}.`)) return activity;
+  return `${packageName}/${activity}`;
+}
+
+/**
+ * Extract the resumed (foreground) component from activity dumps.
+ *
+ * Handles the field names used across Android versions:
+ *   topResumedActivity=ActivityRecord{... com.pkg/.Act t123}
+ *   mResumedActivity: ActivityRecord{... com.pkg/.Act t123}
+ *   ResumedActivity: ActivityRecord{... com.pkg/.Act t123}
+ * and the classic (pre-10) "Activities: <token> com.pkg/.Act" layout, which
+ * only appears in `dumpsys activity top` output (hence the `legacy` flag).
+ */
+export function parseForegroundActivityFromDump(
+  stdout: string,
+  legacy = false,
+): { package: string; activity: string } | null {
+  const record = String.raw`ActivityRecord\{[^}]*?\s(\S+)\/(\S+)\s+t\d+\}`;
+  const patterns: RegExp[] = [
+    new RegExp(String.raw`topResumedActivity=` + record),
+    new RegExp(String.raw`mResumedActivity:?\s+` + record),
+    new RegExp(String.raw`ResumedActivity:?\s+` + record),
+  ];
+  if (legacy) {
+    patterns.push(/^\s*Activities:\s+\S+\s+(\S+)\/(\S+)/m);
+  }
+  for (const re of patterns) {
+    const match = stdout.match(re);
+    if (match) return { package: match[1], activity: match[2] };
+  }
+  return null;
+}
+
 export interface AdbResult {
   stdout: string;
   stderr: string;
@@ -18,16 +219,27 @@ export class AdbService {
 
   private resolveCommand(cmd: string): string {
     if (this.deviceId) {
-      return `adb -s ${this.deviceId} ${cmd}`;
+      // Central choke point: the device id is interpolated into a shell string,
+      // so it is validated and always quoted (serials may contain spaces).
+      return `adb -s ${quoteArg(assertValidDeviceId(this.deviceId))} ${cmd}`;
     }
     return `adb ${cmd}`;
   }
 
   async execute(cmd: string, timeout: number = 10000): Promise<AdbResult> {
     const fullCmd = this.resolveCommand(cmd);
-    const safeCmd = fullCmd.replace(/[&|<>$`]/g, "\\$&");
+    // Escape characters that are dangerous in both cmd.exe and POSIX shells.
+    // `|` and `;` are intentionally left alone: several device-side commands
+    // rely on pipelines (e.g. `dumpsys x | grep y`), and user-supplied values
+    // are validated/whitelisted by the callers before reaching this point.
+    // `"` is deliberately not escaped here because path arguments are quoted
+    // with quoteArg() by their callers.
+    const safeCmd = escapeUnquotedSpecials(fullCmd);
     try {
-      const { stdout, stderr } = await execAsync(safeCmd, { timeout });
+      const { stdout, stderr } = await execAsync(safeCmd, {
+        timeout,
+        maxBuffer: 1024 * 1024 * 50,
+      });
       return { stdout, stderr, exitCode: 0 };
     } catch (error: unknown) {
       const e = error as NodeJS.ErrnoException & {
@@ -54,7 +266,8 @@ export class AdbService {
   }
 
   async isDeviceConnected(deviceId: string): Promise<boolean> {
-    const result = await this.execute(`device ${deviceId}`);
+    const id = assertValidDeviceId(deviceId);
+    const result = await this.execute(`device ${id}`);
     return result.exitCode === 0;
   }
 
@@ -89,16 +302,16 @@ export class AdbService {
   }
 
   async grantPermissions(packageName: string): Promise<AdbResult> {
+    const pkg = assertValidPackageName(packageName);
     return this.execute(
-      `shell pm grant ${packageName} --user 0 --all-permissions`,
+      `shell pm grant ${pkg} --user 0 --all-permissions`,
       30000,
     );
   }
 
   async listPermissions(packageName: string): Promise<string[]> {
-    const result = await this.execute(
-      `shell pm list permissions ${packageName}`,
-    );
+    const pkg = assertValidPackageName(packageName);
+    const result = await this.execute(`shell pm list permissions ${pkg}`);
     return result.stdout
       .split("\n")
       .filter((line: string) => line.includes("name:"))
@@ -106,32 +319,48 @@ export class AdbService {
   }
 
   async listActivities(packageName: string): Promise<string[]> {
+    const pkg = assertValidPackageName(packageName);
+    const result = await this.execute(`shell dumpsys package ${pkg}`, 15000);
+    return parseActivitiesFromDump(result.stdout);
+  }
+
+  async getForegroundActivity(): Promise<{
+    package: string;
+    activity: string;
+  }> {
+    // `dumpsys activity activities` exposes the resumed component on every
+    // Android version (topResumedActivity on 12+, mResumedActivity/ResumedActivity
+    // on older ones). `dumpsys activity top` only lists tasks in indented
+    // "TASK/ACTIVITY" blocks on some ROMs, so it is a secondary fallback.
     const result = await this.execute(
-      `shell dumpsys package ${packageName}`,
+      "shell dumpsys activity activities",
       15000,
     );
-    const activityRe = /^\s+[0-9a-f]+\s+(\S+)\s+filter\s+[0-9a-f]+/gm;
-    const activities = new Set<string>();
-    const matches = result.stdout.matchAll(activityRe);
-    for (const m of matches) {
-      const component = m[1];
-      if (!component) continue;
-      const idx = component.indexOf("/");
-      if (idx !== -1) {
-        activities.add(component.slice(idx + 1));
-      }
-    }
-    return [...activities].sort();
+    const parsed = parseForegroundActivityFromDump(result.stdout);
+    if (parsed) return parsed;
+
+    const topResult = await this.execute(
+      "shell dumpsys activity top -n 1",
+      10000,
+    );
+    const fallback = parseForegroundActivityFromDump(topResult.stdout, true);
+    if (!fallback) throw new Error("Unable to parse foreground activity");
+    return fallback;
+  }
+
+  async getActivitiesForPackage(packageName: string): Promise<string[]> {
+    // Same implementation as listActivities; kept as an alias for the IPC API.
+    return this.listActivities(packageName);
   }
 
   async launchActivity(
     packageName: string,
     activityName: string,
   ): Promise<AdbResult> {
-    const activity = activityName.startsWith(".")
-      ? activityName
-      : activityName.replace(packageName, "");
-    return this.execute(`shell am start -n ${packageName}/${activity}`, 10000);
+    const pkg = assertValidPackageName(packageName);
+    const activity = assertValidActivityName(activityName);
+    const component = resolveActivityComponent(pkg, activity);
+    return this.execute(`shell am start -n ${component}`, 10000);
   }
 
   async listProcesses(): Promise<
@@ -184,19 +413,25 @@ export class AdbService {
   }
 
   async forceStop(packageName: string): Promise<AdbResult> {
-    return this.execute(`shell am force-stop ${packageName}`, 10000);
+    const pkg = assertValidPackageName(packageName);
+    return this.execute(`shell am force-stop ${pkg}`, 10000);
   }
 
   async pull(remotePath: string, localPath: string): Promise<AdbResult> {
-    return this.execute(`pull ${remotePath} ${localPath}`, 60000);
+    const remote = sanitizePath(remotePath);
+    const local = quoteArg(localPath);
+    return this.execute(`pull ${remote} ${local}`, 60000);
   }
 
   async push(localPath: string, remotePath: string): Promise<AdbResult> {
-    return this.execute(`push ${localPath} ${remotePath}`, 60000);
+    const local = quoteArg(localPath);
+    const remote = sanitizePath(remotePath);
+    return this.execute(`push ${local} ${remote}`, 60000);
   }
 
   async listDirectory(remotePath: string): Promise<AdbResult> {
-    return this.execute(`shell ls -l ${remotePath}`, 30000);
+    const remote = sanitizePath(remotePath);
+    return this.execute(`shell ls -l ${remote}`, 30000);
   }
 
   async getShellCurrentDir(): Promise<AdbResult> {
@@ -338,8 +573,9 @@ export class AdbService {
     installDate: string;
     label: string;
   }> {
+    const pkg = assertValidPackageName(packageName);
     const dumpResult = await this.execute(
-      `shell dumpsys package ${packageName}`,
+      `shell dumpsys package ${pkg}`,
       15000,
     );
     const stdout = dumpResult.stdout;
@@ -348,10 +584,7 @@ export class AdbService {
     const targetSdkMatch = stdout.match(/targetSdk=(\S+)/);
     const firstInstallMatch = stdout.match(/firstInstallTime=(.+)/);
 
-    const pathResult = await this.execute(
-      `shell pm path ${packageName}`,
-      10000,
-    );
+    const pathResult = await this.execute(`shell pm path ${pkg}`, 10000);
     let size = "unknown";
     const apkPath = pathResult.stdout
       .split("\n")
@@ -360,7 +593,7 @@ export class AdbService {
       ?.trim();
     if (apkPath) {
       const sizeResult = await this.execute(
-        `shell stat -c %s ${apkPath}`,
+        `shell stat -c %s ${sanitizePath(apkPath)}`,
         10000,
       );
       const sizeBytes = parseInt(sizeResult.stdout.trim(), 10);
@@ -375,38 +608,47 @@ export class AdbService {
       }
     }
 
-    const labelResult = await this.execute(
-      `shell pm dump ${packageName} | grep -m1 "application-label:"`,
-    );
-    const labelMatch = labelResult.stdout.match(/application-label:"([^"]+)"/);
+    let label = pkg;
+    try {
+      const labelResult = await this.execute(`shell pm dump ${pkg}`, 15000);
+      const labelMatch =
+        labelResult.stdout.match(/application-label[^:]*:"([^"]+)"/i) ||
+        labelResult.stdout.match(/label[^:]*:"([^"]+)"/i);
+      if (labelMatch && labelMatch[1]) {
+        label = labelMatch[1];
+      }
+    } catch {
+      // ignore
+    }
 
     return {
       version: versionMatch?.[1] || "unknown",
       targetSdk: targetSdkMatch?.[1] || "unknown",
       size,
       installDate: firstInstallMatch?.[1]?.trim() || "unknown",
-      label: labelMatch?.[1] || packageName,
+      label,
     };
   }
 
   async clearAppData(packageName: string): Promise<AdbResult> {
-    return this.execute(`shell pm clear ${packageName}`, 30000);
+    const pkg = assertValidPackageName(packageName);
+    return this.execute(`shell pm clear ${pkg}`, 30000);
   }
 
   async uninstallApp(packageName: string): Promise<AdbResult> {
-    return this.execute(`shell pm uninstall ${packageName}`, 60000);
+    const pkg = assertValidPackageName(packageName);
+    return this.execute(`shell pm uninstall ${pkg}`, 60000);
   }
 
   async toggleApp(packageName: string, enable: boolean): Promise<AdbResult> {
+    const pkg = assertValidPackageName(packageName);
     const cmd = enable ? "enable" : "disable";
-    return this.execute(`shell pm ${cmd} ${packageName}`, 15000);
+    return this.execute(`shell pm ${cmd} ${pkg}`, 15000);
   }
 
   async exportApk(packageName: string, localPath: string): Promise<AdbResult> {
-    const pathResult = await this.execute(
-      `shell pm path ${packageName}`,
-      10000,
-    );
+    const pkg = assertValidPackageName(packageName);
+    const pathResult = await this.execute(`shell pm path ${pkg}`, 10000);
     const apkPath = pathResult.stdout
       .split("\n")
       .find((l: string) => l.startsWith("package:"))
@@ -423,6 +665,14 @@ export class AdbService {
   }
 
   async pair(target: string, pairingCode: string): Promise<AdbResult> {
+    // Wireless pairing target ("192.168.1.5:37123") and a numeric code both
+    // come straight from user input.
+    if (!/^[A-Za-z0-9._-]+:\d{1,5}$/.test(target)) {
+      throw new Error("Invalid pairing target (expected host:port)");
+    }
+    if (!/^\d{1,10}$/.test(pairingCode)) {
+      throw new Error("Invalid pairing code");
+    }
     return this.execute(`pair ${target} ${pairingCode}`, 30000);
   }
 }

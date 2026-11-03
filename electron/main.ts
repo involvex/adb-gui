@@ -523,6 +523,26 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "adb:get-foreground-activity",
+  async (_event, { deviceId }: { deviceId?: string } = {}) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.getForegroundActivity();
+  },
+);
+
+ipcMain.handle(
+  "adb:get-activities-for-package",
+  async (
+    _event,
+    { packageName, deviceId }: { packageName?: string; deviceId?: string },
+  ) => {
+    if (!packageName) throw new Error("packageName required");
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.getActivitiesForPackage(packageName);
+  },
+);
+
+ipcMain.handle(
   "adb:clear-app-data",
   async (
     _event,
@@ -541,6 +561,31 @@ ipcMain.handle(
   ) => {
     const svc = deviceId ? new AdbService({ deviceId }) : adb;
     return svc.uninstallApp(packageName);
+  },
+);
+
+ipcMain.handle(
+  "adb:launch-activity",
+  async (
+    _event,
+    {
+      packageName,
+      activityName,
+      deviceId,
+    }: { packageName?: string; activityName?: string; deviceId?: string },
+  ) => {
+    if (!packageName || !activityName)
+      throw new Error("packageName and activityName required");
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.launchActivity(packageName, activityName);
+  },
+);
+
+ipcMain.handle(
+  "adb:list-third-party-packages",
+  async (_event, { deviceId }: { deviceId?: string } = {}) => {
+    const svc = deviceId ? new AdbService({ deviceId }) : adb;
+    return svc.listThirdPartyPackages();
   },
 );
 
